@@ -1,0 +1,29 @@
+{
+    "signIn": {
+        "emailAddress": "Email address",
+        "forgotPassword": "Forgot password?",
+        "password": "Password",
+        "passwordPlaceholder": "6+ characters",
+        "signIn": "Sign in",
+        "signingIn": "Signing in...",
+        "signInToYourAccount": "Sign in to your account",
+        "dontHaveAccount": "Don't have an account?",
+        "getStarted": "Get started",
+        "hiWelcomeback": "Hi, Welcome back"
+      },
+      "resetPassword": {
+        "emailLabel": "Email address",
+        "sendRequest": "Send request",
+        "sendingRequest": "Sending request...",
+        "forgotPasswordTitle": "Forgot your password?",
+        "description": "Please enter the email address associated with your account and we'll email you a link to reset your password.",
+        "linkSent": "Password reset link sent to your email!",
+        "linkFailed": "Failed to send reset link",
+        "errorOccurred": "An error occurred while sending reset link",
+        "unexpectedError": "An unexpected error occurred",
+        "returnToSignIn": "Return to sign in"
+      },
+        "RealEstateCRM": "Manage Your Real Estate Operations",
+        "signTitle": "Manage your properties, clients, and sales with optimized workflows."
+
+}

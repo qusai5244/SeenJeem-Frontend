@@ -1,0 +1,100 @@
+import { paths } from 'src/routes/paths';
+import packageJson from '../package.json';
+
+// ----------------------------------------------------------------------
+
+export type ConfigValue = {
+  appName: string;
+  appVersion: string;
+  serverUrl: string;
+  assetsDir: string;
+  filesDir: string;
+  assetsNewUrl: string;
+  auth: {
+    method: 'jwt';
+    skip: boolean;
+    merchantRedirectPath: string;
+    adminRedirectPath: string;
+    login: string;
+    resetPassword: string;
+    setNewPassword: string;
+  
+  };
+ 
+  admin : {
+    driver: {
+      list: string;
+      add: string;
+      update: (id: string) => string;
+      delete: (id: string) => string;  
+    }
+
+  }
+
+  
+  
+
+  superAdmin: {
+    analytics : {
+      getHomePage : string;
+    }
+    
+    // supportMedia: {
+    //   getSupportMedia: string;
+    //   deleteSupportMedia: (id: string) => string;
+    //   addSupportMedia: string;
+    // };
+
+  };
+};
+// ----------------------------------------------------------------------
+
+export const CONFIG: ConfigValue = {
+  appName: 'Drivers Management System',
+  appVersion: packageJson.version,
+  //serverUrl: 'http://theresults-001-site2.ktempurl.com',
+  serverUrl: 'https://localhost:7188',
+  filesDir: import.meta.env.VITE_FILES_DIR ?? '',
+  assetsDir: import.meta.env.VITE_ASSETS_DIR ?? '',
+  assetsNewUrl: 'http://theresults-001-site2.ktempurl.com/uploads',
+  //assetsNewUrl: 'https://localhost:7188/uploads',
+
+  auth: {
+    method: 'jwt',
+    skip: true,
+    merchantRedirectPath: paths.dashboard.root,
+    adminRedirectPath: paths.product.root,
+    login: '/auth/jwt/sign-in',
+    resetPassword: '/api/merchant/Auth/resetPassword',
+    setNewPassword: '/api/merchant/Auth/setNewPassword',
+
+  },
+
+
+  admin:{
+    driver: {
+      list: '/api/driver',
+      add: '/api/driver',
+      update: (id: string) => `/api/driver/${id}`,
+      delete: (id: string) => `/api/driver/${id}`,  
+    }
+  },
+
+
+
+  superAdmin: {
+    
+    analytics : {
+      getHomePage : '/api/admin/analytic'
+    },
+  
+  
+    // supportMedia: {
+    //   getSupportMedia: '/api/admin/supportMedia',
+    //   deleteSupportMedia: (x: string) => `/api/admin/supportMedia/${x}`,
+    //   addSupportMedia: '/api/admin/supportMedia',
+    // },
+
+  },
+};
+

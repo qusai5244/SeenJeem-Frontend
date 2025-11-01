@@ -1,0 +1,28 @@
+{
+    "signIn": {
+        "emailAddress": "البريد الإلكتروني",
+        "forgotPassword": "هل نسيت كلمة المرور؟",
+        "password": "كلمة المرور",
+        "passwordPlaceholder": "6+ أحرف",
+        "signIn": "تسجيل الدخول",
+        "signingIn": "جاري التسجيل...",
+        "signInToYourAccount": "تسجيل الدخول إلى حسابك",
+        "dontHaveAccount": "ليس لديك حساب؟",
+        "getStarted": "ابدأ",
+        "hiWelcomeback": "مرحبا بك مرة أخرى"
+      },
+      "resetPassword": {
+        "emailLabel": "البريد الإلكتروني",
+        "sendRequest": "إرسال طلب",
+        "sendingRequest": "جاري إرسال الطلب...",
+        "forgotPasswordTitle": "هل نسيت كلمة المرور؟",
+        "description": "يرجى إدخال البريد الإلكتروني المرتبط بحسابك وسنرسل لك رابط لإعادة تعيين كلمة المرور.",
+        "linkSent": "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني!",
+        "linkFailed": "فشل إرسال رابط إعادة تعيين كلمة المرور",
+        "errorOccurred": "حدث خطأ أثناء إرسال رابط إعادة تعيين كلمة المرور",
+        "unexpectedError": "حدث خطأ غير متوقع",
+        "returnToSignIn": "العودة إلى تسجيل الدخول"
+      },
+        "RealEstateCRM": "إدارة العمليات العقارية",
+        "signTitle": "إدارة العقارات والعملاء والمبيعات باستخدام التقنيات الحديثة."
+}
