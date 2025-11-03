@@ -34,6 +34,12 @@ export type ConfigValue = {
       add: string;
       update: (id: string) => string;
       all: string;
+    },
+    order: {
+      list: string;
+      add: string;
+      update: (id: string) => string;
+      delete: (id: string) => string;
     }
 
   }
@@ -92,6 +98,13 @@ export const CONFIG: ConfigValue = {
       add: '/api/vehicle',
       update: (id: string) => `/api/vehicle/${id}`,
       all: '/api/vehicle/all',
+    },
+
+    order: {
+      list: '/api/order',
+      add: '/api/order',
+      update: (id: string) => `/api/order/${id}`,
+      delete: (id: string) => `/api/order/${id}`,
     },
 
 

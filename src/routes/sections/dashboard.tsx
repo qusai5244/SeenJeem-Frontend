@@ -13,6 +13,7 @@ import { AuthGuard } from 'src/auth/guard';
 import { usePathname } from '../hooks';
 import DriverListPage from 'src/pages/dashboard/driver/list';
 import VehicleListPage from 'src/pages/dashboard/vehicle/list';
+import OrderListPage from 'src/pages/dashboard/order/list';
 
 
 
@@ -55,6 +56,12 @@ export const dashboardRoutes: RouteObject[] = [
         path: 'vehicle',
         children: [
           { path: 'list', element: <VehicleListPage /> },
+        ]
+      },
+      {
+        path: 'order',
+        children: [
+          { path: 'list', element: <OrderListPage /> },
         ]
       },
     ],
