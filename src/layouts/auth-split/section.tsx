@@ -30,7 +30,7 @@ export function AuthSplitSection({
   method,
   methods,
   layoutQuery = 'md',
-  title = 'RealEstateCRM',
+  title = 'Drivers Management System',
   imgUrl = `${CONFIG.assetsDir}/assets/illustrations/illustration-dashboard.webp`,
   //imgUrl = '/assets/images/hand-holding-house-real-estate-property-model-jpg.webp',
   subtitle = 'signTitle',

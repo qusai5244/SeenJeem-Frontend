@@ -108,7 +108,10 @@ export const paths = {
     root: ROOTS.DASHBOARD,
     driver: {
       list: `${ROOTS.DASHBOARD}/driver/list`,
-    }
+    },
+    vehicle: {
+      list: `${ROOTS.DASHBOARD}/vehicle/list`,
+    },
   },
   superadmin: {
     root: ROOTS.ADMIN,

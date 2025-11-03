@@ -27,6 +27,13 @@ export type ConfigValue = {
       add: string;
       update: (id: string) => string;
       delete: (id: string) => string;  
+      all: string;
+    },
+    vehicle: {
+      list: string;
+      add: string;
+      update: (id: string) => string;
+      all: string;
     }
 
   }
@@ -77,7 +84,17 @@ export const CONFIG: ConfigValue = {
       add: '/api/driver',
       update: (id: string) => `/api/driver/${id}`,
       delete: (id: string) => `/api/driver/${id}`,  
-    }
+      all: '/api/driver/all',
+    },
+
+    vehicle: {
+      list: '/api/vehicle',
+      add: '/api/vehicle',
+      update: (id: string) => `/api/vehicle/${id}`,
+      all: '/api/vehicle/all',
+    },
+
+
   },
 
 

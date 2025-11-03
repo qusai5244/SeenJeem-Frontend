@@ -26,6 +26,7 @@ import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import SettingsIcon from '@mui/icons-material/Settings';
 import KeyIcon from '@mui/icons-material/Key';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import { PermissionsCodes, hasPermission, getUserType } from 'src/auth/guard/permission-guard';
 // import PersonIcon from '@mui/icons-material/Person';
 // ----------------------------------------------------------------------
@@ -82,6 +83,7 @@ export const getDashboardNavData = (t: (key: string) => string): NavSectionProps
     subheader: t('management'),
     items: [
       { title: t('Driver'), path: paths.dashboard.driver.list, icon: <GroupIcon /> },
+      { title: t('Vehicle'), path: paths.dashboard.vehicle.list, icon: <DirectionsCarIcon /> },
     ],
   },
 

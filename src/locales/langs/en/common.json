@@ -23,7 +23,8 @@
         "unexpectedError": "An unexpected error occurred",
         "returnToSignIn": "Return to sign in"
       },
-        "RealEstateCRM": "Manage Your Real Estate Operations",
-        "signTitle": "Manage your properties, clients, and sales with optimized workflows."
+        "RealEstate": "Manage Your Real Estate Operations",
+        "signTitle": "Manage your Drivers and Orders with optimized workflows."
+        
 
 }
