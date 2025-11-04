@@ -1,4 +1,4 @@
-// VEHICLE LIST PAGE WITH PAGINATION AND SEARCH
+// ORDER LIST PAGE WITH PAGINATION AND SEARCH
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -36,6 +36,9 @@ import {
   DialogContent,
   DialogActions
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AppIcon } from 'src/components/icons';
 import { useNavigate } from 'react-router-dom';
 import { apiFetcher, ApiRequestType } from 'src/lib/axios';
@@ -45,8 +48,9 @@ import { useTranslate } from 'src/locales';
 import { paths } from 'src/routes/paths';
 import { hasPermission, PermissionsCodes } from 'src/auth/guard/permission-guard';
 
-interface VehicleSearchInput {
-  Type?: number; // 1 = car, 2 = bike
+interface OrderSearchInput {
+  driverId?: number;
+  date?: string; // ISO format: "2025-11-04T08:55:52.986Z"
   Search: string;
   Page: number;
   PageSize: number;
@@ -62,64 +66,81 @@ interface Driver {
   id: number;
   name: string;
   personalNumber: string;
+  talabatId: string;
+  residentId: string;
 }
 
-interface VehicleItem {
+interface OrderItem {
   id: number;
-  type: number; // 1 = car, 2 = bike
-  plateNumber: string;
+  tips: number;
+  cash: number;
+  status: number;
+  driver: Driver;
+  date: string;
   createdAt: string;
   updatedAt: string;
-  driverId: number | null;
-  driver: Driver | null;
 }
 
-interface VehicleSearchResponse {
-  items: VehicleItem[];
+interface OrderSearchResponse {
+  items: OrderItem[];
   totalCount: number;
   page: number;
   pageSize: number;
   totalPages: number;
 }
 
-export default function VehicleListPage() {
+interface OrderListPageProps {
+  driverId?: number;
+  date?: string;
+}
+
+export default function OrderListPage({ driverId, date }: OrderListPageProps) {
   const { t } = useTranslate();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const [searchData, setSearchData] = useState<VehicleSearchInput>({
-    Type: undefined,
+  const [searchData, setSearchData] = useState<OrderSearchInput>({
+    driverId: driverId,
+    date: date,
     Search: '',
     Page: 1,
     PageSize: 10
   });
 
-  const [searchResults, setSearchResults] = useState<VehicleSearchResponse | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [searchResults, setSearchResults] = useState<OrderSearchResponse | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedVehicle, setSelectedVehicle] = useState<VehicleItem | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
   const [driversList, setDriversList] = useState<DriverOption[]>([]);
   const [driversLoading, setDriversLoading] = useState(false);
   
-  // Add Vehicle Dialog State
+  // Add Order Dialog State
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
-  const [newVehicle, setNewVehicle] = useState({
-    type: 1 as number, // Default to car
-    plateNumber: '',
-    driverId: 0
+  const [newOrder, setNewOrder] = useState({
+    tips: 0,
+    cash: 0,
+    driverId: 0,
+    date: new Date().toISOString()
   });
 
-  // Edit Vehicle Dialog State
+  // Edit Order Dialog State
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState<VehicleItem | null>(null);
-  const [editVehicle, setEditVehicle] = useState({
-    type: 1 as number,
-    plateNumber: '',
-    driverId: 0
+  const [editingOrder, setEditingOrder] = useState<OrderItem | null>(null);
+  const [editOrder, setEditOrder] = useState({
+    tips: 0,
+    cash: 0,
+    driverId: 0,
+    status: 1,
+    date: new Date().toISOString()
   });
+
+  // Delete confirmation dialog
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Load drivers list on mount
   useEffect(() => {
@@ -149,33 +170,45 @@ export default function VehicleListPage() {
     }
   };
 
-  const handleInputChange = (field: keyof VehicleSearchInput, value: string | number | undefined) => {
+  const handleInputChange = (field: keyof OrderSearchInput, value: string | number | undefined) => {
     setSearchData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleDateChange = (date: Date | null) => {
+    setSelectedDate(date);
+    if (date) {
+      setSearchData(prev => ({ ...prev, date: date.toISOString() }));
+    } else {
+      setSearchData(prev => ({ ...prev, date: undefined }));
+    }
   };
 
   const handleSearch = async () => {
     setSearchLoading(true);
     try {
       const queryParams = new URLSearchParams();
-      if (searchData.Type !== undefined && searchData.Type !== null) {
-        queryParams.append('Type', searchData.Type.toString());
+      if (searchData.driverId !== undefined && searchData.driverId !== null) {
+        queryParams.append('driverId', searchData.driverId.toString());
+      }
+      if (searchData.date) {
+        queryParams.append('date', searchData.date);
       }
       if (searchData.Search) queryParams.append('Search', searchData.Search);
-      queryParams.append('Page', searchData.Page.toString());
-      queryParams.append('PageSize', searchData.PageSize.toString());
+      queryParams.append('page', searchData.Page.toString());
+      queryParams.append('pageSize', searchData.PageSize.toString());
 
       const response = await apiFetcher(
-        `${CONFIG.admin.vehicle.list}?${queryParams.toString()}`,
+        `${CONFIG.admin.order.list}?${queryParams.toString()}`,
         ApiRequestType.Get
       );
 
       if (response.success && response.data) {
-        setSearchResults(response.data as VehicleSearchResponse);
+        setSearchResults(response.data as OrderSearchResponse);
       } else {
-        toast.error(response.description || t('Failed to load vehicles'));
+        toast.error(response.description || t('Failed to load orders'));
       }
     } catch (error: any) {
-      toast.error(error.message || t('Failed to load vehicles'));
+      toast.error(error.message || t('Failed to load orders'));
     } finally {
       setSearchLoading(false);
     }
@@ -193,81 +226,92 @@ export default function VehicleListPage() {
   const clearSearch = () => {
     setSearchData(prev => ({
       ...prev,
-      Type: undefined,
+      driverId: undefined,
+      date: undefined,
       Search: '',
       Page: 1
     }));
+    setSelectedDate(null);
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, vehicle: VehicleItem) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, order: OrderItem) => {
     setAnchorEl(event.currentTarget);
-    setSelectedVehicle(vehicle);
+    setSelectedOrder(order);
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedVehicle(null);
   };
 
   const handleOpenAddDialog = () => {
     setOpenAddDialog(true);
+    setNewOrder({
+      tips: 0,
+      cash: 0,
+      driverId: 0,
+      date: new Date().toISOString()
+    });
   };
 
   const handleCloseAddDialog = () => {
     setOpenAddDialog(false);
-    setNewVehicle({
-      type: 1,
-      plateNumber: '',
-      driverId: 0
+    setNewOrder({
+      tips: 0,
+      cash: 0,
+      driverId: 0,
+      date: new Date().toISOString()
     });
   };
 
-  const handleNewVehicleChange = (field: string, value: string | number) => {
-    setNewVehicle(prev => ({ ...prev, [field]: value }));
+  const handleNewOrderChange = (field: string, value: string | number) => {
+    setNewOrder(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddVehicle = async () => {
+  const handleAddOrder = async () => {
     // Validate inputs
-    if (!newVehicle.plateNumber.trim()) {
-      toast.error(t('Please fill all required fields'));
+    if (!newOrder.driverId) {
+      toast.error(t('Please select a driver'));
       return;
     }
 
     setAddLoading(true);
     try {
-      const vehicleData = {
-        type: newVehicle.type,
-        plateNumber: newVehicle.plateNumber,
-        driverId: newVehicle.driverId || 0
-      };
+      const orderData = [{
+        tips: Number(newOrder.tips),
+        cash: Number(newOrder.cash),
+        driverId: newOrder.driverId,
+        date: newOrder.date
+      }];
 
       const response = await apiFetcher(
-        CONFIG.admin.vehicle.add,
+        CONFIG.admin.order.add,
         ApiRequestType.Post,
         undefined,
-        vehicleData
+        orderData
       );
 
       if (response.success) {
-        toast.success(t('Vehicle added successfully'));
+        toast.success(t('Order added successfully'));
         handleCloseAddDialog();
         handleSearch(); // Refresh the list
       } else {
-        toast.error(response.description || t('Failed to add vehicle'));
+        toast.error(response.description || t('Failed to add order'));
       }
     } catch (error: any) {
-      toast.error(error.message || t('Failed to add vehicle'));
+      toast.error(error.message || t('Failed to add order'));
     } finally {
       setAddLoading(false);
     }
   };
 
-  const handleOpenEditDialog = (vehicle: VehicleItem) => {
-    setEditingVehicle(vehicle);
-    setEditVehicle({
-      type: vehicle.type,
-      plateNumber: vehicle.plateNumber,
-      driverId: vehicle.driverId || 0
+  const handleOpenEditDialog = (order: OrderItem) => {
+    setEditingOrder(order);
+    setEditOrder({
+      tips: order.tips,
+      cash: order.cash,
+      driverId: order.driver.id,
+      status: order.status,
+      date: order.date
     });
     setOpenEditDialog(true);
     handleMenuClose();
@@ -275,77 +319,122 @@ export default function VehicleListPage() {
 
   const handleCloseEditDialog = () => {
     setOpenEditDialog(false);
-    setEditingVehicle(null);
-    setEditVehicle({
-      type: 1,
-      plateNumber: '',
-      driverId: 0
+    setEditingOrder(null);
+    setEditOrder({
+      tips: 0,
+      cash: 0,
+      driverId: 0,
+      status: 1,
+      date: new Date().toISOString()
     });
   };
 
-  const handleEditVehicleChange = (field: string, value: string | number) => {
-    setEditVehicle(prev => ({ ...prev, [field]: value }));
+  const handleEditOrderChange = (field: string, value: string | number) => {
+    setEditOrder(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleUpdateVehicle = async () => {
-    if (!editingVehicle) return;
+  const handleUpdateOrder = async () => {
+    if (!editingOrder) return;
 
     // Validate inputs
-    if (!editVehicle.plateNumber.trim()) {
-      toast.error(t('Please fill all required fields'));
+    if (!editOrder.driverId) {
+      toast.error(t('Please select a driver'));
       return;
     }
 
     setEditLoading(true);
     try {
-      const vehicleData = {
-        type: editVehicle.type,
-        plateNumber: editVehicle.plateNumber,
-        driverId: editVehicle.driverId || 0
+      const orderData = {
+        tips: Number(editOrder.tips),
+        cash: Number(editOrder.cash),
+        driverId: editOrder.driverId,
+        status: editOrder.status,
+        date: editOrder.date
       };
 
       const response = await apiFetcher(
-        CONFIG.admin.vehicle.update(editingVehicle.id.toString()),
+        CONFIG.admin.order.update(editingOrder.id.toString()),
         ApiRequestType.Put,
         undefined,
-        vehicleData
+        orderData
       );
 
       if (response.success) {
-        toast.success(t('Vehicle updated successfully'));
+        toast.success(t('Order updated successfully'));
         handleCloseEditDialog();
         handleSearch(); // Refresh the list
       } else {
-        toast.error(response.description || t('Failed to update vehicle'));
+        toast.error(response.description || t('Failed to update order'));
       }
     } catch (error: any) {
-      toast.error(error.message || t('Failed to update vehicle'));
+      toast.error(error.message || t('Failed to update order'));
     } finally {
       setEditLoading(false);
     }
   };
 
-  const getTypeLabel = (type: number) => {
-    switch (type) {
+  const handleOpenDeleteDialog = () => {
+    setOpenDeleteDialog(true);
+    handleMenuClose();
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setOpenDeleteDialog(false);
+    setSelectedOrder(null);
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!selectedOrder) return;
+
+    setDeleteLoading(true);
+    try {
+      const response = await apiFetcher(
+        CONFIG.admin.order.delete(selectedOrder.id.toString()),
+        ApiRequestType.Delete
+      );
+
+      if (response.success) {
+        toast.success(t('Order deleted successfully'));
+        handleCloseDeleteDialog();
+        handleSearch(); // Refresh the list
+      } else {
+        toast.error(response.description || t('Failed to delete order'));
+      }
+    } catch (error: any) {
+      toast.error(error.message || t('Failed to delete order'));
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const getStatusLabel = (status: number) => {
+    switch (status) {
       case 1:
-        return t('Car');
+        return t('Completed');
       case 2:
-        return t('Bike');
+        return t('Pending');
+      case 3:
+        return t('Deleted');
       default:
         return t('Unknown');
     }
   };
 
-  const getTypeColor = (type: number) => {
-    switch (type) {
-      case 1:
+  const getStatusColor = (status: number) => {
+    switch (status) {
+      case 1: // Completed
         return { 
-          bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+          bg: 'linear-gradient(135deg, #06d6a0 0%, #118ab2 100%)', 
           color: 'white'
         };
-      case 2:
+      case 2: // Pending
         return { 
-          bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', 
+          bg: 'linear-gradient(135deg, #f59e0b 0%, #f97316 100%)', 
+          color: 'white'
+        };
+      case 3: // Deleted
+        return { 
+          bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', 
           color: 'white'
         };
       default:
@@ -386,10 +475,10 @@ export default function VehicleListPage() {
               mb: 0.5
             }}
           >
-            {t('Vehicles List')}
+            {t('Orders List')}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {t('Manage and view all registered vehicles')}
+            {t('Manage and view all orders')}
           </Typography>
         </Box>
         <Button 
@@ -406,7 +495,7 @@ export default function VehicleListPage() {
             transition: 'all 0.3s ease'
           }}
         >
-          {t('Add Vehicle')}
+          {t('Add Order')}
         </Button>
       </Box>
 
@@ -425,12 +514,12 @@ export default function VehicleListPage() {
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={3}>
               <FormControl fullWidth>
-                <InputLabel>{t('Type')}</InputLabel>
+                <InputLabel>{t('Driver')}</InputLabel>
                 <Select
-                  value={searchData.Type ?? ''}
-                  label={t('Type')}
-                  onChange={(e) => handleInputChange('Type', e.target.value === '' ? undefined : Number(e.target.value))}
-                  disabled={searchLoading}
+                  value={searchData.driverId ?? ''}
+                  label={t('Driver')}
+                  onChange={(e) => handleInputChange('driverId', e.target.value === '' ? undefined : Number(e.target.value))}
+                  disabled={searchLoading || driversLoading}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: 'rgba(102, 126, 234, 0.3)',
@@ -443,16 +532,44 @@ export default function VehicleListPage() {
                     }
                   }}
                 >
-                  <MenuItem value="">{t('All Types')}</MenuItem>
-                  <MenuItem value={1}>{t('Car')}</MenuItem>
-                  <MenuItem value={2}>{t('Bike')}</MenuItem>
+                  <MenuItem value="">{t('All Drivers')}</MenuItem>
+                  {driversList.map((driver) => (
+                    <MenuItem key={driver.id} value={driver.id}>
+                      {driver.name}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label={t('Date')}
+                  value={selectedDate}
+                  onChange={handleDateChange}
+                  disabled={searchLoading}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      sx: {
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          }
+                        }
+                      }
+                    }
+                  }}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12} md={3}>
               <TextField
                 label={t('Search')}
-                placeholder={t('Search by plate number...')}
+                placeholder={t('Search orders...')}
                 value={searchData.Search}
                 onChange={(e) => handleInputChange('Search', e.target.value)}
                 fullWidth
@@ -469,7 +586,7 @@ export default function VehicleListPage() {
                 }}
               />
             </Grid>
-            <Grid item xs={6} md={2.5}>
+            <Grid item xs={6} md={1.5}>
               <Button
                 fullWidth
                 variant="contained"
@@ -490,7 +607,7 @@ export default function VehicleListPage() {
                 {searchLoading ? t('Searching...') : t('Search')}
               </Button>
             </Grid>
-            <Grid item xs={6} md={2.5}>
+            <Grid item xs={6} md={1.5}>
               <Button 
                 fullWidth 
                 variant="outlined" 
@@ -523,7 +640,7 @@ export default function VehicleListPage() {
         }}>
           <CircularProgress size={60} sx={{ color: '#667eea' }} />
           <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-            {t('Loading vehicles...')}
+            {t('Loading orders...')}
           </Typography>
         </Box>
       ) : searchResults ? (
@@ -549,7 +666,7 @@ export default function VehicleListPage() {
                     }
                   }}
                 >
-                  {t('No vehicles found')}
+                  {t('No orders found')}
                 </Alert>
               ) : (
                 <>
@@ -570,16 +687,22 @@ export default function VehicleListPage() {
                             }}
                           >
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
-                              {t('Plate Number')}
-                            </TableCell>
-                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
-                              {t('Type')}
+                              {t('ID')}
                             </TableCell>
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
                               {t('Driver')}
                             </TableCell>
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
-                              {t('Created At')}
+                              {t('Tips')}
+                            </TableCell>
+                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
+                              {t('Cash')}
+                            </TableCell>
+                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
+                              {t('Status')}
+                            </TableCell>
+                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
+                              {t('Date')}
                             </TableCell>
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
                               {t('Actions')}
@@ -587,11 +710,11 @@ export default function VehicleListPage() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {searchResults.items.map((vehicle, index) => {
-                            const typeColor = getTypeColor(vehicle.type);
+                          {searchResults.items.map((order, index) => {
+                            const statusColor = getStatusColor(order.status);
                             return (
                               <TableRow 
-                                key={vehicle.id}
+                                key={order.id}
                                 sx={{
                                   backgroundColor: index % 2 === 0 ? 'rgba(102, 126, 234, 0.04)' : 'white',
                                   borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
@@ -604,15 +727,31 @@ export default function VehicleListPage() {
                                 }}
                               >
                                 <TableCell sx={{ fontWeight: 600, color: '#333', py: 2.5 }}>
-                                  {vehicle.plateNumber}
+                                  #{order.id}
+                                </TableCell>
+                                <TableCell sx={{ color: '#666', py: 2.5 }}>
+                                  <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                      {order.driver.name}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: '#999' }}>
+                                      {order.driver.personalNumber}
+                                    </Typography>
+                                  </Box>
+                                </TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: '#06d6a0', py: 2.5 }}>
+                                  {order.tips.toFixed(2)} OMR
+                                </TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: '#667eea', py: 2.5 }}>
+                                  {order.cash.toFixed(2)} OMR
                                 </TableCell>
                                 <TableCell sx={{ py: 2.5 }}>
                                   <Chip
-                                    label={getTypeLabel(vehicle.type)}
+                                    label={getStatusLabel(order.status)}
                                     size="small"
                                     sx={{
-                                      background: typeColor.bg,
-                                      color: typeColor.color,
+                                      background: statusColor.bg,
+                                      color: statusColor.color,
                                       fontWeight: 700,
                                       borderRadius: 2,
                                       px: 1,
@@ -621,24 +760,8 @@ export default function VehicleListPage() {
                                     }}
                                   />
                                 </TableCell>
-                                <TableCell sx={{ color: '#666', py: 2.5 }}>
-                                  {vehicle.driver ? (
-                                    <Box>
-                                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                        {vehicle.driver.name}
-                                      </Typography>
-                                      <Typography variant="caption" sx={{ color: '#999' }}>
-                                        {vehicle.driver.personalNumber}
-                                      </Typography>
-                                    </Box>
-                                  ) : (
-                                    <Typography variant="body2" sx={{ color: '#999', fontStyle: 'italic' }}>
-                                      {t('No driver assigned')}
-                                    </Typography>
-                                  )}
-                                </TableCell>
                                 <TableCell sx={{ color: '#666', fontSize: '0.875rem', py: 2.5 }}>
-                                  {new Date(vehicle.createdAt).toLocaleDateString('en-US', {
+                                  {new Date(order.date).toLocaleDateString('en-US', {
                                     year: 'numeric',
                                     month: 'short',
                                     day: 'numeric',
@@ -648,7 +771,7 @@ export default function VehicleListPage() {
                                 </TableCell>
                                 <TableCell sx={{ py: 2.5 }}>
                                   <IconButton 
-                                    onClick={(e) => handleMenuOpen(e, vehicle)}
+                                    onClick={(e) => handleMenuOpen(e, order)}
                                     sx={{
                                       color: '#667eea',
                                       '&:hover': {
@@ -669,11 +792,11 @@ export default function VehicleListPage() {
                     </TableContainer>
                   ) : (
                     <Stack spacing={2}>
-                      {searchResults.items.map((vehicle) => {
-                        const typeColor = getTypeColor(vehicle.type);
+                      {searchResults.items.map((order) => {
+                        const statusColor = getStatusColor(order.status);
                         return (
                           <Card 
-                            key={vehicle.id}
+                            key={order.id}
                             sx={{
                               background: '#ffffff',
                               boxShadow: '0 2px 12px rgba(0, 0, 0, 0.12)',
@@ -690,14 +813,14 @@ export default function VehicleListPage() {
                             <CardContent sx={{ p: 2.5 }}>
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                                 <Typography variant="h6" sx={{ fontWeight: 700, color: '#333' }}>
-                                  {vehicle.plateNumber}
+                                  Order #{order.id}
                                 </Typography>
                                 <Chip
-                                  label={getTypeLabel(vehicle.type)}
+                                  label={getStatusLabel(order.status)}
                                   size="small"
                                   sx={{
-                                    background: typeColor.bg,
-                                    color: typeColor.color,
+                                    background: statusColor.bg,
+                                    color: statusColor.color,
                                     fontWeight: 700,
                                     borderRadius: 2,
                                     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
@@ -712,21 +835,37 @@ export default function VehicleListPage() {
                                     {t('Driver')}:
                                   </Typography>
                                   <Typography variant="body2" sx={{ color: '#666' }}>
-                                    {vehicle.driver ? `${vehicle.driver.name} (${vehicle.driver.personalNumber})` : t('No driver assigned')}
+                                    {order.driver.name} ({order.driver.personalNumber})
                                   </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 120 }}>
-                                    {t('Created At')}:
+                                    {t('Tips')}:
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#06d6a0', fontWeight: 600 }}>
+                                    {order.tips.toFixed(2)} OMR
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 120 }}>
+                                    {t('Cash')}:
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#667eea', fontWeight: 600 }}>
+                                    {order.cash.toFixed(2)} OMR
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 120 }}>
+                                    {t('Date')}:
                                   </Typography>
                                   <Typography variant="body2" sx={{ color: '#666', fontSize: '0.875rem' }}>
-                                    {new Date(vehicle.createdAt).toLocaleDateString()}
+                                    {new Date(order.date).toLocaleDateString()}
                                   </Typography>
                                 </Box>
                               </Stack>
                               <Box sx={{ mt: 2, textAlign: 'right' }}>
                                 <IconButton 
-                                  onClick={(e) => handleMenuOpen(e, vehicle)}
+                                  onClick={(e) => handleMenuOpen(e, order)}
                                   sx={{
                                     color: '#667eea',
                                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
@@ -790,7 +929,7 @@ export default function VehicleListPage() {
                   {Math.min(searchData.Page * searchData.PageSize, searchResults.totalCount)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {t('of')} {searchResults.totalCount} {t('total vehicles')}
+                  {t('of')} {searchResults.totalCount} {t('total orders')}
                 </Typography>
               </Box>
             </Box>
@@ -852,15 +991,21 @@ export default function VehicleListPage() {
       ) : null}
 
       <Menu anchorEl={anchorEl} open={!!anchorEl} onClose={handleMenuClose}>
-        {selectedVehicle && (
-          <MenuItem onClick={() => handleOpenEditDialog(selectedVehicle)}>
-            <ListItemIcon><AppIcon name="edit" size="small" /></ListItemIcon>
-            <ListItemText>{t('Edit')}</ListItemText>
-          </MenuItem>
+        {selectedOrder && (
+          <>
+            <MenuItem onClick={() => handleOpenEditDialog(selectedOrder)}>
+              <ListItemIcon><AppIcon name="edit" size="small" /></ListItemIcon>
+              <ListItemText>{t('Edit')}</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={handleOpenDeleteDialog}>
+              <ListItemIcon><AppIcon name="delete" size="small" /></ListItemIcon>
+              <ListItemText>{t('Delete')}</ListItemText>
+            </MenuItem>
+          </>
         )}
       </Menu>
 
-      {/* Add Vehicle Dialog */}
+      {/* Add Order Dialog */}
       <Dialog 
         open={openAddDialog} 
         onClose={handleCloseAddDialog}
@@ -875,40 +1020,20 @@ export default function VehicleListPage() {
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            {t('Add New Vehicle')}
+            {t('Add New Order')}
           </Typography>
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             <FormControl fullWidth required>
-              <InputLabel>{t('Type')}</InputLabel>
-              <Select
-                value={newVehicle.type}
-                label={t('Type')}
-                onChange={(e) => handleNewVehicleChange('type', Number(e.target.value))}
-                disabled={addLoading}
-              >
-                <MenuItem value={1}>{t('Car')}</MenuItem>
-                <MenuItem value={2}>{t('Bike')}</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              label={t('Plate Number')}
-              value={newVehicle.plateNumber}
-              onChange={(e) => handleNewVehicleChange('plateNumber', e.target.value)}
-              fullWidth
-              required
-              disabled={addLoading}
-            />
-            <FormControl fullWidth>
               <InputLabel>{t('Driver')}</InputLabel>
               <Select
-                value={newVehicle.driverId}
+                value={newOrder.driverId}
                 label={t('Driver')}
-                onChange={(e) => handleNewVehicleChange('driverId', Number(e.target.value))}
+                onChange={(e) => handleNewOrderChange('driverId', Number(e.target.value))}
                 disabled={addLoading || driversLoading}
               >
-                <MenuItem value={0}>{t('No driver assigned')}</MenuItem>
+                <MenuItem value={0}>{t('Select driver')}</MenuItem>
                 {driversList.map((driver) => (
                   <MenuItem key={driver.id} value={driver.id}>
                     {driver.name} ({driver.mobileNumber})
@@ -916,6 +1041,37 @@ export default function VehicleListPage() {
                 ))}
               </Select>
             </FormControl>
+            <TextField
+              label={t('Tips')}
+              type="number"
+              value={newOrder.tips}
+              onChange={(e) => handleNewOrderChange('tips', Number(e.target.value))}
+              fullWidth
+              disabled={addLoading}
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <TextField
+              label={t('Cash')}
+              type="number"
+              value={newOrder.cash}
+              onChange={(e) => handleNewOrderChange('cash', Number(e.target.value))}
+              fullWidth
+              disabled={addLoading}
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label={t('Date')}
+                value={new Date(newOrder.date)}
+                onChange={(date) => date && handleNewOrderChange('date', date.toISOString())}
+                disabled={addLoading}
+                slotProps={{
+                  textField: {
+                    fullWidth: true
+                  }
+                }}
+              />
+            </LocalizationProvider>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2.5 }}>
@@ -926,17 +1082,17 @@ export default function VehicleListPage() {
             {t('Cancel')}
           </Button>
           <Button 
-            onClick={handleAddVehicle} 
+            onClick={handleAddOrder} 
             variant="contained"
             disabled={addLoading}
             startIcon={addLoading ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            {addLoading ? t('Adding...') : t('Add Vehicle')}
+            {addLoading ? t('Adding...') : t('Add Order')}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Edit Vehicle Dialog */}
+      {/* Edit Order Dialog */}
       <Dialog 
         open={openEditDialog} 
         onClose={handleCloseEditDialog}
@@ -951,40 +1107,20 @@ export default function VehicleListPage() {
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            {t('Edit Vehicle')}
+            {t('Edit Order')}
           </Typography>
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             <FormControl fullWidth required>
-              <InputLabel>{t('Type')}</InputLabel>
-              <Select
-                value={editVehicle.type}
-                label={t('Type')}
-                onChange={(e) => handleEditVehicleChange('type', Number(e.target.value))}
-                disabled={editLoading}
-              >
-                <MenuItem value={1}>{t('Car')}</MenuItem>
-                <MenuItem value={2}>{t('Bike')}</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              label={t('Plate Number')}
-              value={editVehicle.plateNumber}
-              onChange={(e) => handleEditVehicleChange('plateNumber', e.target.value)}
-              fullWidth
-              required
-              disabled={editLoading}
-            />
-            <FormControl fullWidth>
               <InputLabel>{t('Driver')}</InputLabel>
               <Select
-                value={editVehicle.driverId}
+                value={editOrder.driverId}
                 label={t('Driver')}
-                onChange={(e) => handleEditVehicleChange('driverId', Number(e.target.value))}
+                onChange={(e) => handleEditOrderChange('driverId', Number(e.target.value))}
                 disabled={editLoading || driversLoading}
               >
-                <MenuItem value={0}>{t('No driver assigned')}</MenuItem>
+                <MenuItem value={0}>{t('Select driver')}</MenuItem>
                 {driversList.map((driver) => (
                   <MenuItem key={driver.id} value={driver.id}>
                     {driver.name} ({driver.mobileNumber})
@@ -992,6 +1128,50 @@ export default function VehicleListPage() {
                 ))}
               </Select>
             </FormControl>
+            <TextField
+              label={t('Tips')}
+              type="number"
+              value={editOrder.tips}
+              onChange={(e) => handleEditOrderChange('tips', Number(e.target.value))}
+              fullWidth
+              disabled={editLoading}
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <TextField
+              label={t('Cash')}
+              type="number"
+              value={editOrder.cash}
+              onChange={(e) => handleEditOrderChange('cash', Number(e.target.value))}
+              fullWidth
+              disabled={editLoading}
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <FormControl fullWidth required>
+              <InputLabel>{t('Status')}</InputLabel>
+              <Select
+                value={editOrder.status}
+                label={t('Status')}
+                onChange={(e) => handleEditOrderChange('status', Number(e.target.value))}
+                disabled={editLoading}
+              >
+                <MenuItem value={1}>{t('Completed')}</MenuItem>
+                <MenuItem value={2}>{t('Pending')}</MenuItem>
+                <MenuItem value={3}>{t('Deleted')}</MenuItem>
+              </Select>
+            </FormControl>
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label={t('Date')}
+                value={new Date(editOrder.date)}
+                onChange={(date) => date && handleEditOrderChange('date', date.toISOString())}
+                disabled={editLoading}
+                slotProps={{
+                  textField: {
+                    fullWidth: true
+                  }
+                }}
+              />
+            </LocalizationProvider>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2.5 }}>
@@ -1002,12 +1182,54 @@ export default function VehicleListPage() {
             {t('Cancel')}
           </Button>
           <Button 
-            onClick={handleUpdateVehicle} 
+            onClick={handleUpdateOrder} 
             variant="contained"
             disabled={editLoading}
             startIcon={editLoading ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            {editLoading ? t('Updating...') : t('Update Vehicle')}
+            {editLoading ? t('Updating...') : t('Update Order')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog 
+        open={openDeleteDialog} 
+        onClose={handleCloseDeleteDialog}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>
+            {t('Delete Order')}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            {t('Are you sure you want to delete this order? This action cannot be undone.')}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2.5 }}>
+          <Button 
+            onClick={handleCloseDeleteDialog} 
+            disabled={deleteLoading}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button 
+            onClick={handleDeleteOrder} 
+            variant="contained"
+            color="error"
+            disabled={deleteLoading}
+            startIcon={deleteLoading ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {deleteLoading ? t('Deleting...') : t('Delete')}
           </Button>
         </DialogActions>
       </Dialog>

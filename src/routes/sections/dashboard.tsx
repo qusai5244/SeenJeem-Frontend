@@ -20,7 +20,7 @@ import OrderListPage from 'src/pages/dashboard/order/list';
 // ----------------------------------------------------------------------
 
 // Overview
-const IndexPage = lazy(() => import('src/pages/dashboard'));
+const IndexPage = lazy(() => import('src/pages/dashboard/analytics'));
 
 // ----------------------------------------------------------------------
  
