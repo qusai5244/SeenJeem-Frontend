@@ -7,6 +7,7 @@ import Link from '@mui/material/Link';
 import { styled, useTheme } from '@mui/material/styles';
 
 import { RouterLink } from 'src/routes/components';
+import HomeIcon from '@mui/icons-material/Home';
 
 import { logoClasses } from './classes';
 import { CONFIG } from 'src/global-config';
@@ -53,26 +54,22 @@ export const Logo = forwardRef<HTMLAnchorElement, LogoProps>((props, ref) => {
     */
 
     const singleLogo = (
-      <img
-        alt="Single logo"
-        // src={`${CONFIG.assetsDir}/logo/logo-single.svg`}
-        src={"src/assets/icons/property.png"}
-        width="100%"
-        height="100%"
-        style={{
-          marginTop: '10px',
-          objectFit: 'contain',
+      <HomeIcon
+        sx={{
+          width: '100%',
+          height: '100%',
+          color: PRIMARY_MAIN,
         }}
       />
     );
 
     const fullLogo = (
-      <img
-        alt="Full logo"
-        src={`${CONFIG.assetsDir}/logo/logo-full.svg`}
-        // src={"src/assets/icons/property.png"}
-        width="100%"
-        height="100%"
+      <HomeIcon
+        sx={{
+          width: '100%',
+          height: '100%',
+          color: PRIMARY_MAIN,
+        }}
       />
     );
 

@@ -518,7 +518,14 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
                 <Select
                   value={searchData.driverId ?? ''}
                   label={t('Driver')}
-                  onChange={(e) => handleInputChange('driverId', e.target.value === '' ? undefined : Number(e.target.value))}
+                  onChange={(e) => {
+                    const newDriverId = e.target.value === '' ? undefined : Number(e.target.value);
+                    setSearchData(prev => ({ 
+                      ...prev, 
+                      driverId: newDriverId,
+                      Page: 1 // Reset pagination when driver changes
+                    }));
+                  }}
                   disabled={searchLoading || driversLoading}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {

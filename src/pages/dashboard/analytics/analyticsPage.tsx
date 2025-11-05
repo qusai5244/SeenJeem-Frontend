@@ -16,7 +16,16 @@ import {
   Stack,
   Chip,
   CircularProgress,
-  Alert
+  Alert,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Divider,
+  TextField,
+  IconButton
 } from '@mui/material';
 import { AppIcon } from 'src/components/icons';
 import { useTranslate } from 'src/locales';
@@ -52,6 +61,8 @@ interface DayData {
   totalCash: number;
   totalTips: number;
   distance: number;
+  kmStart: number;
+  kmEnd: number;
 }
 
 interface MonthData {
@@ -86,7 +97,9 @@ const convertApiToMonthData = (apiData: ApiResponse): MonthData => {
     hasActivity: day.tripsCount > 0,
     totalCash: day.totalCash,
     totalTips: day.totalTips,
-    distance: day.kmEnd - day.kmStart
+    distance: day.kmEnd - day.kmStart,
+    kmStart: day.kmStart,
+    kmEnd: day.kmEnd
   }));
   
   return {
@@ -115,6 +128,12 @@ export default function ScheduleOverviewPage() {
   const [loading, setLoading] = useState(false);
   const [driversList, setDriversList] = useState<DriverOption[]>([]);
   const [driversLoading, setDriversLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editKmStart, setEditKmStart] = useState<number>(0);
+  const [editKmEnd, setEditKmEnd] = useState<number>(0);
+  const [updating, setUpdating] = useState(false);
 
   // Generate years for dropdown (last 5 years + current + next 2)
   const years = Array.from({ length: 8 }, (_, i) => currentDate.getFullYear() - 5 + i);
@@ -162,8 +181,8 @@ export default function ScheduleOverviewPage() {
     }
   };
 
-  const loadStatistics = async () => {
-    if (!selectedDriverId) return;
+  const loadStatistics = async (): Promise<MonthData | null> => {
+    if (!selectedDriverId) return null;
 
     setLoading(true);
     try {
@@ -180,11 +199,14 @@ export default function ScheduleOverviewPage() {
         const apiData = response.data as ApiResponse;
         const convertedData = convertApiToMonthData(apiData);
         setMonthData(convertedData);
+        return convertedData;
       } else {
         toast.error(response.description || t('Failed to load statistics'));
+        return null;
       }
     } catch (error: any) {
       toast.error(error.message || t('Failed to load statistics'));
+      return null;
     } finally {
       setLoading(false);
     }
@@ -201,6 +223,108 @@ export default function ScheduleOverviewPage() {
 
   const handleMonthChange = (event: any) => {
     setSelectedMonth(event.target.value);
+  };
+
+  const handleDayClick = (dayData: DayData) => {
+    setSelectedDay(dayData);
+    setEditKmStart(dayData.kmStart);
+    setEditKmEnd(dayData.kmEnd);
+    setIsEditMode(false);
+    setDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setSelectedDay(null);
+    setIsEditMode(false);
+    setEditKmStart(0);
+    setEditKmEnd(0);
+  };
+
+  const handleEditToggle = () => {
+    if (isEditMode && selectedDay) {
+      // Cancel edit - reset to original values
+      setEditKmStart(selectedDay.kmStart);
+      setEditKmEnd(selectedDay.kmEnd);
+    }
+    setIsEditMode(!isEditMode);
+  };
+
+  const handleUpdateKm = async () => {
+    if (!selectedDay || !selectedDriverId) return;
+
+    setUpdating(true);
+    try {
+      // Format the date as ISO string using UTC to avoid timezone issues
+      // Create date at midnight UTC to preserve the selected date
+      const date = new Date(Date.UTC(selectedYear, selectedMonth - 1, selectedDay.date, 0, 0, 0, 0));
+      const isoDate = date.toISOString();
+
+      const requestData = {
+        driverId: selectedDriverId,
+        start: editKmStart,
+        end: editKmEnd,
+        date: isoDate
+      };
+
+      const response = await apiFetcher(
+        CONFIG.admin.driver.updateDailyDistanceTrip,
+        ApiRequestType.Put,
+        undefined,
+        requestData
+      );
+
+      if (response.success) {
+        toast.success(t('Kilometers updated successfully'));
+        setIsEditMode(false);
+        // Reload statistics to reflect the changes
+        const refreshedData = await loadStatistics();
+        // Update the selectedDay with fresh data from refreshed statistics
+        if (selectedDay && refreshedData) {
+          const updatedDayData = refreshedData.days.find(d => d.date === selectedDay.date);
+          if (updatedDayData) {
+            setSelectedDay(updatedDayData);
+            setEditKmStart(updatedDayData.kmStart);
+            setEditKmEnd(updatedDayData.kmEnd);
+          }
+        }
+      } else {
+        toast.error(response.description || t('Failed to update kilometers'));
+      }
+    } catch (error: any) {
+      console.error('Failed to update kilometers:', error);
+      toast.error(error.message || t('Failed to update kilometers'));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Generate tooltip content for day hover
+  const getDayTooltipContent = (dayData: DayData | undefined) => {
+    if (!dayData || !dayData.hasActivity) return null;
+    
+    return (
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+          {t('Day')} {dayData.date}
+        </Typography>
+        <Typography variant="caption" display="block">
+          {t('Trips')}: {dayData.count}
+        </Typography>
+        <Typography variant="caption" display="block">
+          {t('Km Start')}: {dayData.kmStart.toFixed(1)} km
+        </Typography>
+        <Typography variant="caption" display="block">
+          {t('Km End')}: {dayData.kmEnd.toFixed(1)} km
+        </Typography>
+        <Typography variant="caption" display="block">
+          {t('Cash')}: {dayData.totalCash.toFixed(2)} OMR
+        </Typography>
+        <Typography variant="caption" display="block">
+          {t('Tips')}: {dayData.totalTips.toFixed(2)} OMR
+        </Typography>
+      </Box>
+    );
   };
 
   // Get calendar grid data (including previous/next month days for complete weeks)
@@ -451,71 +575,78 @@ export default function ScheduleOverviewPage() {
             <Grid container spacing={0.75}>
               {calendarDays.map((day, index) => (
                 <Grid item xs={12/7} key={index}>
-                  <Box
-                    sx={{
-                      aspectRatio: '1',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 1.5,
-                      border: '1px solid',
-                      borderColor: day.isCurrentMonth 
-                        ? (day.data?.hasActivity ? 'rgba(102, 126, 234, 0.2)' : 'rgba(0, 0, 0, 0.08)')
-                        : 'transparent',
-                      backgroundColor: day.isCurrentMonth
-                        ? (day.data?.hasActivity ? 'rgba(134, 239, 172, 0.15)' : 'rgba(249, 250, 251, 0.5)')
-                        : 'transparent',
-                      position: 'relative',
-                      cursor: day.data?.hasActivity ? 'pointer' : 'default',
-                      transition: 'all 0.2s ease',
-                      '&:hover': day.data?.hasActivity ? {
-                        backgroundColor: 'rgba(134, 239, 172, 0.25)',
-                        borderColor: 'rgba(102, 126, 234, 0.4)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
-                      } : {},
-                      minHeight: { xs: 25, sm: 32, md: 35 }
-                    }}
+                  <Tooltip
+                    title={getDayTooltipContent(day.data)}
+                    arrow
+                    disableHoverListener={!day.data?.hasActivity}
                   >
-                    {/* Day number */}
-                    <Typography
-                      variant="body2"
+                    <Box
+                      onClick={() => day.data?.hasActivity && day.data && handleDayClick(day.data)}
                       sx={{
-                        fontSize: { xs: '0.65rem', sm: '0.75rem' },
-                        fontWeight: day.isCurrentMonth ? 600 : 400,
-                        color: day.isCurrentMonth ? '#333' : '#ccc',
-                        mb: day.data?.hasActivity ? 0.2 : 0
+                        aspectRatio: '1',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 1.5,
+                        border: '1px solid',
+                        borderColor: day.isCurrentMonth 
+                          ? (day.data?.hasActivity ? 'rgba(102, 126, 234, 0.2)' : 'rgba(0, 0, 0, 0.08)')
+                          : 'transparent',
+                        backgroundColor: day.isCurrentMonth
+                          ? (day.data?.hasActivity ? 'rgba(134, 239, 172, 0.15)' : 'rgba(249, 250, 251, 0.5)')
+                          : 'transparent',
+                        position: 'relative',
+                        cursor: day.data?.hasActivity ? 'pointer' : 'default',
+                        transition: 'all 0.2s ease',
+                        '&:hover': day.data?.hasActivity ? {
+                          backgroundColor: 'rgba(134, 239, 172, 0.25)',
+                          borderColor: 'rgba(102, 126, 234, 0.4)',
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
+                        } : {},
+                        minHeight: { xs: 25, sm: 32, md: 35 }
                       }}
                     >
-                      {day.date}
-                    </Typography>
+                      {/* Day number */}
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                          fontWeight: day.isCurrentMonth ? 600 : 400,
+                          color: day.isCurrentMonth ? '#333' : '#ccc',
+                          mb: day.data?.hasActivity ? 0.2 : 0
+                        }}
+                      >
+                        {day.date}
+                      </Typography>
 
-                    {/* Activity indicator */}
-                    {day.data?.hasActivity && (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.2 }}>
-                        <Box
-                          sx={{
-                            width: { xs: 4, sm: 5 },
-                            height: { xs: 4, sm: 5 },
-                            borderRadius: '50%',
-                            backgroundColor: '#667eea',
-                            boxShadow: '0 2px 4px rgba(102, 126, 234, 0.4)'
-                          }}
-                        />
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: { xs: '0.55rem', sm: '0.6rem' },
-                            fontWeight: 600,
-                            color: '#667eea'
-                          }}
-                        >
-                          {day.data.count}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
+                      {/* Activity indicator */}
+                      {day.data?.hasActivity && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.2 }}>
+                          <Box
+                            sx={{
+                              width: { xs: 4, sm: 5 },
+                              height: { xs: 4, sm: 5 },
+                              borderRadius: '50%',
+                              backgroundColor: '#667eea',
+                              boxShadow: '0 2px 4px rgba(102, 126, 234, 0.4)'
+                            }}
+                          />
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: { xs: '0.55rem', sm: '0.6rem' },
+                              fontWeight: 600,
+                              color: '#667eea'
+                            }}
+                          >
+                            {day.data.count}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Tooltip>
                 </Grid>
               ))}
             </Grid>
@@ -840,6 +971,352 @@ export default function ScheduleOverviewPage() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Day Details Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={handleDialogClose}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            px: 4,
+            py: 3,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            fontWeight: 700,
+            fontSize: '1.25rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <Box>
+            {selectedDay && (
+              <>
+                {t('Day Details')} - {selectedDay.date} {months[selectedMonth - 1]} {selectedYear}
+              </>
+            )}
+          </Box>
+          {selectedDay && (
+            <IconButton
+              onClick={handleEditToggle}
+              disabled={updating}
+              sx={{
+                color: 'white',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              <AppIcon name={isEditMode ? "close" : "edit"} sx={{ color: 'white' }} />
+            </IconButton>
+          )}
+        </DialogTitle>
+        <DialogContent sx={{ px: 4, pt: 4, pb: 3, backgroundColor: '#f8f9fa' }}>
+          {selectedDay && (
+            <Grid container spacing={3} sx={{ mt: 2 }}>
+              {/* Trips Count */}
+              <Grid item xs={12} sm={6}>
+                <Card
+                  sx={{
+                    p: 3,
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderRadius: 2,
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.15)',
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+                    <Box
+                      sx={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 2,
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+                      }}
+                    >
+                      <AppIcon name="viewList" sx={{ color: 'white', fontSize: 28 }} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 500 }}>
+                        {t('Total Orders')}
+                      </Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                        {selectedDay.count}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Card>
+              </Grid>
+
+              {/* Km Start and Km End */}
+              <Grid item xs={12} sm={6}>
+                <Card
+                  sx={{
+                    p: 3,
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderRadius: 2,
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.15)',
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2.5 }}>
+                    <Box
+                      sx={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 2,
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+                      }}
+                    >
+                      <AppIcon name="analytics" sx={{ color: 'white', fontSize: 28 }} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 500 }}>
+                        {t('Kilometers')}
+                      </Typography>
+                      {isEditMode ? (
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                          <TextField
+                            label={t('Start')}
+                            type="number"
+                            value={editKmStart}
+                            onChange={(e) => setEditKmStart(parseFloat(e.target.value) || 0)}
+                            size="small"
+                            inputProps={{ step: 0.1, min: 0 }}
+                            sx={{ flex: 1, minWidth: 120 }}
+                            disabled={updating}
+                          />
+                          <TextField
+                            label={t('End')}
+                            type="number"
+                            value={editKmEnd}
+                            onChange={(e) => setEditKmEnd(parseFloat(e.target.value) || 0)}
+                            size="small"
+                            inputProps={{ step: 0.1, min: 0 }}
+                            sx={{ flex: 1, minWidth: 120 }}
+                            disabled={updating}
+                          />
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5, fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                              {t('Start')}
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                              {selectedDay.kmStart.toFixed(1)} <span style={{ fontSize: '0.75rem', color: '#888' }}>km</span>
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5, fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                              {t('End')}
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                              {selectedDay.kmEnd.toFixed(1)} <span style={{ fontSize: '0.75rem', color: '#888' }}>km</span>
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                </Card>
+              </Grid>
+
+              {/* Total Cash */}
+              <Grid item xs={12} sm={6}>
+                <Card
+                  sx={{
+                    p: 3,
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderRadius: 2,
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.15)',
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+                    <Box
+                      sx={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 2,
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+                      }}
+                    >
+                      <AppIcon name="businessCenter" sx={{ color: 'white', fontSize: 28 }} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 500 }}>
+                        {t('Total Cash')}
+                      </Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                        {selectedDay.totalCash.toFixed(2)} <span style={{ fontSize: '0.9rem', color: '#888' }}>OMR</span>
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Card>
+              </Grid>
+
+              {/* Total Tips */}
+              <Grid item xs={12} sm={6}>
+                <Card
+                  sx={{
+                    p: 3,
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderRadius: 2,
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.15)',
+                      transform: 'translateY(-2px)'
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+                    <Box
+                      sx={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 2,
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+                      }}
+                    >
+                      <AppIcon name="localOffer" sx={{ color: 'white', fontSize: 28 }} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 500 }}>
+                        {t('Total Tips')}
+                      </Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                        {selectedDay.totalTips.toFixed(2)} <span style={{ fontSize: '0.9rem', color: '#888' }}>OMR</span>
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Card>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 4, py: 3, backgroundColor: 'white', borderTop: '1px solid #e0e0e0', gap: 1.5 }}>
+          {isEditMode ? (
+            <>
+              <Button
+                onClick={handleEditToggle}
+                variant="outlined"
+                size="large"
+                disabled={updating}
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  borderColor: '#667eea',
+                  color: '#667eea',
+                  '&:hover': {
+                    borderColor: '#5568d3',
+                    backgroundColor: 'rgba(102, 126, 234, 0.08)'
+                  }
+                }}
+              >
+                {t('Cancel')}
+              </Button>
+              <Button
+                onClick={handleUpdateKm}
+                variant="contained"
+                size="large"
+                disabled={updating}
+                sx={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #5568d3 0%, #653a91 100%)',
+                    boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)'
+                  },
+                  '&:disabled': {
+                    background: 'rgba(102, 126, 234, 0.5)'
+                  }
+                }}
+              >
+                {updating ? t('Saving...') : t('Save')}
+              </Button>
+            </>
+          ) : (
+            <Button
+              onClick={handleDialogClose}
+              variant="contained"
+              size="large"
+              sx={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                px: 4,
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                textTransform: 'none',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5568d3 0%, #653a91 100%)',
+                  boxShadow: '0 6px 16px rgba(102, 126, 234, 0.4)'
+                }
+              }}
+            >
+              {t('Close')}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
         </>
       )}
     </Box>

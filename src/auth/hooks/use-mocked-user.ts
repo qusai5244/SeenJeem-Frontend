@@ -10,7 +10,7 @@ import { _mock } from 'src/_mock';
 // import { useAuthContext } from 'src/auth/hooks';
 // const { user } = useAuthContext();
 
-import {apiFetcher, baseURL, endpoints, ApiRequestType} from 'src/lib/axios'
+import {apiFetcher, endpoints, ApiRequestType} from 'src/lib/axios'
 
 // ----------------------------------------------------------------------
 
@@ -38,15 +38,12 @@ export type UserInfo = {
   email: string;
   name: string;
   mobileNumber: string;
-  organization: string;
 };
 
 export async function getUser(): Promise<UserInfo | null> {
   try {
-    console.log(`${baseURL}${endpoints.auth.me}`);
-
     const response = await apiFetcher<UserInfo>(
-      `${baseURL}${endpoints.auth.me}`,
+      endpoints.auth.me,
       ApiRequestType.Get
     );
 
@@ -61,7 +58,6 @@ export async function getUser(): Promise<UserInfo | null> {
       email: response.data.email,
       name: response.data.name, // Ensure the API response has this field
       mobileNumber: response.data.mobileNumber,
-      organization: response.data.organization,
     };
   } catch (error) {
     console.error("Error fetching user:", error);
