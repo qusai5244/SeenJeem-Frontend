@@ -67,11 +67,11 @@ export type ConfigValue = {
 export const CONFIG: ConfigValue = {
   appName: 'Drivers Management System',
   appVersion: packageJson.version,
-  //serverUrl: 'http://theresults-001-site2.ktempurl.com',
-  serverUrl: 'https://localhost:7188',
+  serverUrl: 'http://theresults-001-site4.ktempurl.com',
+  //serverUrl: 'https://localhost:7188',
   filesDir: import.meta.env.VITE_FILES_DIR ?? '',
   assetsDir: import.meta.env.VITE_ASSETS_DIR ?? '',
-  assetsNewUrl: 'http://theresults-001-site2.ktempurl.com/uploads',
+  assetsNewUrl: 'http://theresults-001-site4.ktempurl.com/uploads',
   //assetsNewUrl: 'https://localhost:7188/uploads',
 
   auth: {
