@@ -115,6 +115,9 @@ export const paths = {
     order: {
       list: `${ROOTS.DASHBOARD}/order/list`,
     },
+    reports: {
+      list: `${ROOTS.DASHBOARD}/reports/list`,
+    },
   },
   superadmin: {
     root: ROOTS.ADMIN,

@@ -85,6 +85,7 @@ export const getDashboardNavData = (t: (key: string) => string): NavSectionProps
       { title: t('Drivers'), path: paths.dashboard.driver.list, icon: <GroupIcon /> },
       { title: t('Vehicles'), path: paths.dashboard.vehicle.list, icon: <DirectionsCarIcon /> },
       { title: t('Orders'), path: paths.dashboard.order.list, icon: <ViewListIcon /> },
+      { title: t('Reports'), path: paths.dashboard.reports.list, icon: <AnalyticsIcon /> },
     ],
   },
 

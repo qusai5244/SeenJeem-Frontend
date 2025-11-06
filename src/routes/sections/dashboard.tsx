@@ -14,6 +14,7 @@ import { usePathname } from '../hooks';
 import DriverListPage from 'src/pages/dashboard/driver/list';
 import VehicleListPage from 'src/pages/dashboard/vehicle/list';
 import OrderListPage from 'src/pages/dashboard/order/list';
+import ReportsListPage from 'src/pages/dashboard/reports/list';
 
 
 
@@ -62,6 +63,12 @@ export const dashboardRoutes: RouteObject[] = [
         path: 'order',
         children: [
           { path: 'list', element: <OrderListPage /> },
+        ]
+      },
+      {
+        path: 'reports',
+        children: [
+          { path: 'list', element: <ReportsListPage /> },
         ]
       },
     ],

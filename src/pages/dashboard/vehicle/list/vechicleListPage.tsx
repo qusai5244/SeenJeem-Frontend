@@ -235,11 +235,13 @@ export default function VehicleListPage() {
 
     setAddLoading(true);
     try {
-      const vehicleData = {
-        type: newVehicle.type,
-        plateNumber: newVehicle.plateNumber,
-        driverId: newVehicle.driverId || 0
-      };
+      const vehicleData = [
+        {
+          type: newVehicle.type,
+          plateNumber: newVehicle.plateNumber,
+          driverId: newVehicle.driverId || 0
+        }
+      ];
 
       const response = await apiFetcher(
         CONFIG.admin.vehicle.add,
