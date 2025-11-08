@@ -34,16 +34,27 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Input
 } from '@mui/material';
 import { AppIcon } from 'src/components/icons';
 import { useNavigate } from 'react-router-dom';
-import { apiFetcher, ApiRequestType } from 'src/lib/axios';
+import { apiFetcher, ApiRequestType, baseURL } from 'src/lib/axios';
 import { CONFIG } from 'src/global-config';
 import { toast } from 'src/components/snackbar';
 import { useTranslate } from 'src/locales';
 import { paths } from 'src/routes/paths';
 import { hasPermission, PermissionsCodes } from 'src/auth/guard/permission-guard';
+import axios from 'axios';
+
+// FileType enum matching backend
+enum FileType {
+  Passport = 1,
+  License = 2,
+  IdCard = 3,
+  Prove = 4,
+  Other = 5
+}
 
 interface DriverSearchInput {
   Search: string;
@@ -95,6 +106,12 @@ export default function DriverListPage() {
     residentId: '',
     talabatid: '',
     personalNumber: ''
+  });
+  const [driverFiles, setDriverFiles] = useState({
+    idCard: null as File | null,
+    license: null as File | null,
+    profileImage: null as File | null,
+    approval: null as File | null
   });
 
   // Edit Driver Dialog State
@@ -185,6 +202,45 @@ export default function DriverListPage() {
       talabatid: '',
       personalNumber: ''
     });
+    setDriverFiles({
+      idCard: null,
+      license: null,
+      profileImage: null,
+      approval: null
+    });
+  };
+
+  const handleFileChange = (field: keyof typeof driverFiles, file: File | null) => {
+    setDriverFiles(prev => ({ ...prev, [field]: file }));
+  };
+
+  const uploadMediaFile = async (file: File, fileType: FileType): Promise<number> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fileType', fileType.toString());
+
+      const token = localStorage.getItem('jwt_access_token');
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        // Don't set Content-Type, let browser set it with boundary for FormData
+      };
+
+      const response = await axios.post(
+        `${baseURL}${CONFIG.admin.media.add}`,
+        formData,
+        { headers }
+      );
+
+      if (response.data.success && response.data.data) {
+        return response.data.data; // Return the mediaId
+      } else {
+        throw new Error(response.data.description || 'File upload failed');
+      }
+    } catch (error: any) {
+      console.error('Media upload error:', error);
+      throw new Error(error.response?.data?.description || error.message || 'File upload failed');
+    }
   };
 
   const handleNewDriverChange = (field: string, value: string) => {
@@ -198,13 +254,47 @@ export default function DriverListPage() {
       return;
     }
 
+    // Validate files
+    if (!driverFiles.idCard || !driverFiles.license || !driverFiles.profileImage || !driverFiles.approval) {
+      toast.error(t('Please upload all required files'));
+      return;
+    }
+
     setAddLoading(true);
     try {
+      // Upload all files first and collect mediaIds
+      const mediaIds: number[] = [];
+
+      // Upload Id Card (FileType.IdCard = 3)
+      const idCardMediaId = await uploadMediaFile(driverFiles.idCard, FileType.IdCard);
+      mediaIds.push(idCardMediaId);
+
+      // Upload License (FileType.License = 2)
+      const licenseMediaId = await uploadMediaFile(driverFiles.license, FileType.License);
+      mediaIds.push(licenseMediaId);
+
+      // Upload Profile Image (FileType.Other = 5)
+      const profileImageMediaId = await uploadMediaFile(driverFiles.profileImage, FileType.Other);
+      mediaIds.push(profileImageMediaId);
+
+      // Upload Approval (FileType.Prove = 4)
+      const approvalMediaId = await uploadMediaFile(driverFiles.approval, FileType.Prove);
+      mediaIds.push(approvalMediaId);
+
+      // Create driver with mediaIds
+      const driverPayload = {
+        name: newDriver.name,
+        residentId: newDriver.residentId,
+        talabatid: newDriver.talabatid,
+        personalNumber: newDriver.personalNumber,
+        mediaIds: mediaIds
+      };
+
       const response = await apiFetcher(
         CONFIG.admin.driver.add,
         ApiRequestType.Post,
         undefined,
-        [newDriver]
+        driverPayload
       );
 
       if (response.success) {
@@ -848,6 +938,103 @@ export default function DriverListPage() {
               required
               disabled={addLoading}
             />
+            
+            {/* File Upload Fields */}
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                {t('Required Documents')}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                      {t('Id Card')} *
+                    </Typography>
+                    <Input
+                      type="file"
+                      inputProps={{ accept: 'image/*,.pdf' }}
+                      onChange={(e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0] || null;
+                        handleFileChange('idCard', file);
+                      }}
+                      disabled={addLoading}
+                      sx={{ width: '100%' }}
+                    />
+                    {driverFiles.idCard && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {driverFiles.idCard.name}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                      {t('License')} *
+                    </Typography>
+                    <Input
+                      type="file"
+                      inputProps={{ accept: 'image/*,.pdf' }}
+                      onChange={(e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0] || null;
+                        handleFileChange('license', file);
+                      }}
+                      disabled={addLoading}
+                      sx={{ width: '100%' }}
+                    />
+                    {driverFiles.license && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {driverFiles.license.name}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                      {t('Profile Image')} *
+                    </Typography>
+                    <Input
+                      type="file"
+                      inputProps={{ accept: 'image/*' }}
+                      onChange={(e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0] || null;
+                        handleFileChange('profileImage', file);
+                      }}
+                      disabled={addLoading}
+                      sx={{ width: '100%' }}
+                    />
+                    {driverFiles.profileImage && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {driverFiles.profileImage.name}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+                      {t('Approval')} *
+                    </Typography>
+                    <Input
+                      type="file"
+                      inputProps={{ accept: 'image/*,.pdf' }}
+                      onChange={(e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0] || null;
+                        handleFileChange('approval', file);
+                      }}
+                      disabled={addLoading}
+                      sx={{ width: '100%' }}
+                    />
+                    {driverFiles.approval && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {driverFiles.approval.name}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+              </Grid>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2.5 }}>

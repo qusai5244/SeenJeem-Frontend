@@ -43,6 +43,12 @@ export type ConfigValue = {
       add: string;
       update: (id: string) => string;
       delete: (id: string) => string;
+    },
+    media: {
+      list: string;
+      add: string;
+      update: (id: string) => string;
+      delete: (id: string) => string;
     }
 
   }
@@ -113,7 +119,12 @@ export const CONFIG: ConfigValue = {
       delete: (id: string) => `/api/order/${id}`,
     },
 
-
+    media: {
+      list: '/api/media',
+      add: '/api/media',
+      update: (id: string) => `/api/media/${id}`,
+      delete: (id: string) => `/api/media/${id}`,
+    }
   },
 
 

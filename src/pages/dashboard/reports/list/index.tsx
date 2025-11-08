@@ -20,7 +20,7 @@ export default function ReportsListPage() {
         <title>{metadata.title}</title>
       </Helmet>
       <CustomBreadcrumbs
-        heading={t('Driver Reportsss')}
+        heading={t('Driver Reports')}
         links={[
           { name: t('Dashboard'), href: paths.dashboard.root },
           { name: t('Reports') },
