@@ -72,7 +72,8 @@ interface Driver {
 
 interface OrderItem {
   id: number;
-  tips: number;
+  customerTips: number;
+  talabatTips: number;
   cash: number;
   status: number;
   driver: Driver;
@@ -120,7 +121,8 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [newOrder, setNewOrder] = useState({
-    tips: 0,
+    customerTips: 0,
+    talabatTips: 0,
     cash: 0,
     driverId: 0,
     date: new Date().toISOString()
@@ -131,7 +133,8 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
   const [editLoading, setEditLoading] = useState(false);
   const [editingOrder, setEditingOrder] = useState<OrderItem | null>(null);
   const [editOrder, setEditOrder] = useState({
-    tips: 0,
+    customerTips: 0,
+    talabatTips: 0,
     cash: 0,
     driverId: 0,
     status: 1,
@@ -246,7 +249,8 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
   const handleOpenAddDialog = () => {
     setOpenAddDialog(true);
     setNewOrder({
-      tips: 0,
+      customerTips: 0,
+      talabatTips: 0,
       cash: 0,
       driverId: 0,
       date: new Date().toISOString()
@@ -256,7 +260,8 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
   const handleCloseAddDialog = () => {
     setOpenAddDialog(false);
     setNewOrder({
-      tips: 0,
+      customerTips: 0,
+      talabatTips: 0,
       cash: 0,
       driverId: 0,
       date: new Date().toISOString()
@@ -277,7 +282,8 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
     setAddLoading(true);
     try {
       const orderData = [{
-        tips: Number(newOrder.tips),
+        customerTips: Number(newOrder.customerTips),
+        talabatTips: Number(newOrder.talabatTips),
         cash: Number(newOrder.cash),
         driverId: newOrder.driverId,
         date: newOrder.date
@@ -307,7 +313,8 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
   const handleOpenEditDialog = (order: OrderItem) => {
     setEditingOrder(order);
     setEditOrder({
-      tips: order.tips,
+      customerTips: order.customerTips,
+      talabatTips: order.talabatTips,
       cash: order.cash,
       driverId: order.driver.id,
       status: order.status,
@@ -321,7 +328,8 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
     setOpenEditDialog(false);
     setEditingOrder(null);
     setEditOrder({
-      tips: 0,
+      customerTips: 0,
+      talabatTips: 0,
       cash: 0,
       driverId: 0,
       status: 1,
@@ -345,7 +353,8 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
     setEditLoading(true);
     try {
       const orderData = {
-        tips: Number(editOrder.tips),
+        customerTips: Number(editOrder.customerTips),
+        talabatTips: Number(editOrder.talabatTips),
         cash: Number(editOrder.cash),
         driverId: editOrder.driverId,
         status: editOrder.status,
@@ -700,7 +709,10 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
                               {t('Driver')}
                             </TableCell>
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
-                              {t('Tips')}
+                              {t('Customer Tips')}
+                            </TableCell>
+                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
+                              {t('Talabat Tips')}
                             </TableCell>
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
                               {t('Cash')}
@@ -747,7 +759,10 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
                                   </Box>
                                 </TableCell>
                                 <TableCell sx={{ fontWeight: 600, color: '#06d6a0', py: 2.5 }}>
-                                  {order.tips.toFixed(2)} OMR
+                                  {order.customerTips.toFixed(2)} OMR
+                                </TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: '#f59e0b', py: 2.5 }}>
+                                  {order.talabatTips.toFixed(2)} OMR
                                 </TableCell>
                                 <TableCell sx={{ fontWeight: 600, color: '#667eea', py: 2.5 }}>
                                   {order.cash.toFixed(2)} OMR
@@ -838,7 +853,7 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
                               <Divider sx={{ my: 1.5, borderColor: 'rgba(102, 126, 234, 0.2)' }} />
                               <Stack spacing={1.5}>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 120 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 140 }}>
                                     {t('Driver')}:
                                   </Typography>
                                   <Typography variant="body2" sx={{ color: '#666' }}>
@@ -846,15 +861,23 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
                                   </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 120 }}>
-                                    {t('Tips')}:
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 140 }}>
+                                    {t('Customer Tips')}:
                                   </Typography>
                                   <Typography variant="body2" sx={{ color: '#06d6a0', fontWeight: 600 }}>
-                                    {order.tips.toFixed(2)} OMR
+                                    {order.customerTips.toFixed(2)} OMR
                                   </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 120 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 140 }}>
+                                    {t('Talabat Tips')}:
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                                    {order.talabatTips.toFixed(2)} OMR
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 140 }}>
                                     {t('Cash')}:
                                   </Typography>
                                   <Typography variant="body2" sx={{ color: '#667eea', fontWeight: 600 }}>
@@ -862,7 +885,7 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
                                   </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 120 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea', minWidth: 140 }}>
                                     {t('Date')}:
                                   </Typography>
                                   <Typography variant="body2" sx={{ color: '#666', fontSize: '0.875rem' }}>
@@ -1049,10 +1072,19 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
               </Select>
             </FormControl>
             <TextField
-              label={t('Tips')}
+              label={t('Customer Tips')}
               type="number"
-              value={newOrder.tips}
-              onChange={(e) => handleNewOrderChange('tips', Number(e.target.value))}
+              value={newOrder.customerTips}
+              onChange={(e) => handleNewOrderChange('customerTips', Number(e.target.value))}
+              fullWidth
+              disabled={addLoading}
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <TextField
+              label={t('Talabat Tips')}
+              type="number"
+              value={newOrder.talabatTips}
+              onChange={(e) => handleNewOrderChange('talabatTips', Number(e.target.value))}
               fullWidth
               disabled={addLoading}
               inputProps={{ min: 0, step: 0.01 }}
@@ -1136,10 +1168,19 @@ export default function OrderListPage({ driverId, date }: OrderListPageProps) {
               </Select>
             </FormControl>
             <TextField
-              label={t('Tips')}
+              label={t('Customer Tips')}
               type="number"
-              value={editOrder.tips}
-              onChange={(e) => handleEditOrderChange('tips', Number(e.target.value))}
+              value={editOrder.customerTips}
+              onChange={(e) => handleEditOrderChange('customerTips', Number(e.target.value))}
+              fullWidth
+              disabled={editLoading}
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <TextField
+              label={t('Talabat Tips')}
+              type="number"
+              value={editOrder.talabatTips}
+              onChange={(e) => handleEditOrderChange('talabatTips', Number(e.target.value))}
               fullWidth
               disabled={editLoading}
               inputProps={{ min: 0, step: 0.01 }}

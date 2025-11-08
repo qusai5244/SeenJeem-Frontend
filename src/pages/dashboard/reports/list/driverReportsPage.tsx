@@ -34,6 +34,7 @@ import { apiFetcher, ApiRequestType } from 'src/lib/axios';
 import { CONFIG } from 'src/global-config';
 import { toast } from 'src/components/snackbar';
 import { useTranslate } from 'src/locales';
+import * as XLSX from 'xlsx';
 
 interface DriverReportSearchInput {
   DriverId?: number;
@@ -59,12 +60,14 @@ interface DriverReport {
   plateNumber: string | null;
   totalOrders: number;
   totalTips: number;
+  totalTalabatTips: number;
+  totalCustomerTips: number;
   totalCash: number;
   totalKm: number;
 }
 
 interface DriverReportResponse {
-  driverReports: DriverReport[];
+  items: DriverReport[];
   totalCount?: number;
   page?: number;
   pageSize?: number;
@@ -92,6 +95,7 @@ export default function DriverReportsPage() {
   const [reportLoading, setReportLoading] = useState(false);
   const [driversList, setDriversList] = useState<DriverOption[]>([]);
   const [driversLoading, setDriversLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   // Load drivers list on mount
   useEffect(() => {
@@ -185,6 +189,75 @@ export default function DriverReportsPage() {
     }));
     setDateFrom(null);
     setDateTo(null);
+  };
+
+  const handleDownloadExcel = async () => {
+    setDownloadLoading(true);
+    try {
+      // Build query params for download (without pagination)
+      const queryParams = new URLSearchParams();
+      if (searchData.DriverId !== undefined && searchData.DriverId !== null) {
+        queryParams.append('DriverId', searchData.DriverId.toString());
+      }
+      if (searchData.DateFrom) queryParams.append('DateFrom', searchData.DateFrom);
+      if (searchData.DateTo) queryParams.append('DateTo', searchData.DateTo);
+      if (searchData.Search) queryParams.append('Search', searchData.Search);
+
+      const response = await apiFetcher(
+        `${CONFIG.admin.driver.downloadReport}?${queryParams.toString()}`,
+        ApiRequestType.Get
+      );
+
+      if (response.success && response.data) {
+        const reports = response.data as DriverReport[];
+        
+        // Prepare data for Excel
+        const excelData = reports.map((report) => ({
+          'ID': report.id,
+          'Name': report.name,
+          'Resident ID': report.residentId,
+          'Talabat ID': report.talabatId,
+          'Personal Number': report.personalNumber,
+          'Plate Number': report.plateNumber || '-',
+          'Total Orders': report.totalOrders,
+          'Total Tips': report.totalTips.toFixed(2),
+          'Talabat Tips': report.totalTalabatTips.toFixed(2),
+          'Customer Tips': report.totalCustomerTips.toFixed(2),
+          'Total Cash': report.totalCash.toFixed(2),
+          'Total KM': report.totalKm.toFixed(2),
+        }));
+
+        // Create worksheet and workbook
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Driver Reports');
+
+        // Auto-size columns
+        const maxWidth = excelData.reduce((acc, row) => {
+          Object.keys(row).forEach((key, i) => {
+            const value = String(row[key as keyof typeof row]);
+            acc[i] = Math.max(acc[i] || 10, value.length, key.length);
+          });
+          return acc;
+        }, [] as number[]);
+        
+        worksheet['!cols'] = maxWidth.map(w => ({ width: w + 2 }));
+
+        // Generate filename with current date
+        const filename = `Driver_Reports_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+        // Download
+        XLSX.writeFile(workbook, filename);
+        
+        toast.success(t('Report downloaded successfully'));
+      } else {
+        toast.error(response.description || t('Failed to download report'));
+      }
+    } catch (error: any) {
+      toast.error(error.message || t('Failed to download report'));
+    } finally {
+      setDownloadLoading(false);
+    }
   };
 
   return (
@@ -337,12 +410,12 @@ export default function DriverReportsPage() {
                 }}
               />
             </Grid>
-            <Grid item xs={6} md={2.5}>
+            <Grid item xs={6} md={2}>
               <Button
                 fullWidth
                 variant="contained"
                 onClick={handleSearch}
-                disabled={reportLoading}
+                disabled={reportLoading || downloadLoading}
                 startIcon={reportLoading ? <CircularProgress size={20} color="inherit" /> : <AppIcon name="search" />}
                 sx={{
                   py: 1.5,
@@ -358,12 +431,12 @@ export default function DriverReportsPage() {
                 {reportLoading ? t('Searching...') : t('Search')}
               </Button>
             </Grid>
-            <Grid item xs={6} md={2.5}>
+            <Grid item xs={6} md={2}>
               <Button 
                 fullWidth 
                 variant="outlined" 
                 onClick={clearSearch} 
-                disabled={reportLoading}
+                disabled={reportLoading || downloadLoading}
                 sx={{
                   py: 1.5,
                   borderColor: '#667eea',
@@ -375,6 +448,27 @@ export default function DriverReportsPage() {
                 }}
               >
                 {t('Clear')}
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={handleDownloadExcel}
+                disabled={reportLoading || downloadLoading}
+                startIcon={downloadLoading ? <CircularProgress size={20} color="inherit" /> : <AppIcon name="download" />}
+                sx={{
+                  py: 1.5,
+                  background: 'linear-gradient(135deg, #06d6a0 0%, #118ab2 100%)',
+                  boxShadow: '0 4px 15px rgba(6, 214, 160, 0.3)',
+                  '&:hover': {
+                    boxShadow: '0 6px 20px rgba(6, 214, 160, 0.5)',
+                    transform: 'translateY(-1px)',
+                  },
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                {downloadLoading ? t('Downloading...') : t('Download Excel')}
               </Button>
             </Grid>
           </Grid>
@@ -407,7 +501,7 @@ export default function DriverReportsPage() {
             }}
           >
             <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-              {reportData.driverReports.length === 0 ? (
+              {reportData.items.length === 0 ? (
                 <Alert 
                   severity="info"
                   sx={{
@@ -459,6 +553,12 @@ export default function DriverReportsPage() {
                               {t('Total Tips')}
                             </TableCell>
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
+                              {t('Talabat Tips')}
+                            </TableCell>
+                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
+                              {t('Customer Tips')}
+                            </TableCell>
+                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
                               {t('Total Cash')}
                             </TableCell>
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
@@ -467,7 +567,7 @@ export default function DriverReportsPage() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {reportData.driverReports.map((report, index) => (
+                          {reportData.items.map((report, index) => (
                             <TableRow 
                               key={report.id}
                               sx={{
@@ -503,6 +603,12 @@ export default function DriverReportsPage() {
                                 {report.totalTips.toFixed(2)}
                               </TableCell>
                               <TableCell sx={{ color: '#666', py: 2.5, fontWeight: 600 }}>
+                                {report.totalTalabatTips.toFixed(2)}
+                              </TableCell>
+                              <TableCell sx={{ color: '#666', py: 2.5, fontWeight: 600 }}>
+                                {report.totalCustomerTips.toFixed(2)}
+                              </TableCell>
+                              <TableCell sx={{ color: '#666', py: 2.5, fontWeight: 600 }}>
                                 {report.totalCash.toFixed(2)}
                               </TableCell>
                               <TableCell sx={{ color: '#666', py: 2.5, fontWeight: 600 }}>
@@ -515,7 +621,7 @@ export default function DriverReportsPage() {
                     </TableContainer>
                   ) : (
                     <Stack spacing={2}>
-                      {reportData.driverReports.map((report) => (
+                      {reportData.items.map((report) => (
                         <Card 
                           key={report.id}
                           sx={{
@@ -586,6 +692,22 @@ export default function DriverReportsPage() {
                               </Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea' }}>
+                                  {t('Talabat Tips')}:
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#666', fontWeight: 600 }}>
+                                  {report.totalTalabatTips.toFixed(2)}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea' }}>
+                                  {t('Customer Tips')}:
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#666', fontWeight: 600 }}>
+                                  {report.totalCustomerTips.toFixed(2)}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea' }}>
                                   {t('Total Cash')}:
                                 </Typography>
                                 <Typography variant="body2" sx={{ color: '#666', fontWeight: 600 }}>
@@ -611,7 +733,7 @@ export default function DriverReportsPage() {
             </CardContent>
           </Card>
 
-          {reportData.driverReports.length > 0 && (
+          {reportData.items.length > 0 && (
             <Box
               sx={{
                 mt: 0,
@@ -643,15 +765,15 @@ export default function DriverReportsPage() {
                     boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)'
                   }}
                 >
-                  {reportData.totalCount ?? reportData.driverReports.length}
+                  {reportData.totalCount ?? reportData.items.length}
                 </Box>
                 <Box>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
                     {t('Showing')} {(searchData.Page - 1) * searchData.PageSize + 1} -{' '}
-                    {Math.min(searchData.Page * searchData.PageSize, reportData.totalCount ?? reportData.driverReports.length)}
+                    {Math.min(searchData.Page * searchData.PageSize, reportData.totalCount ?? reportData.items.length)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {t('of')} {reportData.totalCount ?? reportData.driverReports.length} {t('total reports')}
+                    {t('of')} {reportData.totalCount ?? reportData.items.length} {t('total reports')}
                   </Typography>
                 </Box>
               </Box>
@@ -683,7 +805,7 @@ export default function DriverReportsPage() {
                 </FormControl>
 
                 <Pagination
-                  count={reportData.totalPages ?? Math.ceil((reportData.totalCount ?? reportData.driverReports.length) / searchData.PageSize)}
+                  count={reportData.totalPages ?? Math.ceil((reportData.totalCount ?? reportData.items.length) / searchData.PageSize)}
                   page={searchData.Page}
                   onChange={handlePageChange}
                   showFirstButton

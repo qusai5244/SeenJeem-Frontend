@@ -31,6 +31,7 @@ export type ConfigValue = {
       statistics: (driverId: string) => string;
       updateDailyDistanceTrip: string;
       reports: string;
+      downloadReport: string;
     },
     vehicle: {
       list: string;
@@ -103,6 +104,7 @@ export const CONFIG: ConfigValue = {
       statistics: (driverId: string) => `/api/driver/statistics/${driverId}`,
       updateDailyDistanceTrip: '/api/Driver/dailyDistanceTrip',
       reports: '/api/Driver/reports',
+      downloadReport: '/api/Driver/reports/download',
     },
 
     vehicle: {
