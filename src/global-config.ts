@@ -79,8 +79,8 @@ export const CONFIG: ConfigValue = {
   serverUrl: 'https://localhost:7188',
   filesDir: import.meta.env.VITE_FILES_DIR ?? '',
   assetsDir: import.meta.env.VITE_ASSETS_DIR ?? '',
-  assetsNewUrl: 'http://theresults-001-site4.ktempurl.com/uploads',
-  //assetsNewUrl: 'https://localhost:7188/uploads',
+  //assetsNewUrl: 'http://theresults-001-site4.ktempurl.com/uploads',
+  assetsNewUrl: 'https://localhost:7188/uploads',
 
   auth: {
     method: 'jwt',
