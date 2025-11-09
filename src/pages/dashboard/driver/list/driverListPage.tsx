@@ -1191,97 +1191,249 @@ export default function DriverListPage() {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 2,
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+            border: '1px solid rgba(0, 0, 0, 0.06)'
           }
         }}
       >
-        <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            {t('Driver Details')}
-          </Typography>
+        <DialogTitle 
+          sx={{ 
+            pb: 2,
+            pt: 3,
+            px: 3,
+            borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+            background: 'linear-gradient(to bottom, #fafafa, #ffffff)'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: '#333', mb: 0.5 }}>
+                {t('Driver Details')}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                {t('View driver information and documents')}
+              </Typography>
+            </Box>
+            <IconButton 
+              onClick={handleCloseDetailsDialog}
+              sx={{
+                color: '#666',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                  color: '#333'
+                }
+              }}
+            >
+              <AppIcon name="close" />
+            </IconButton>
+          </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ px: 3, py: 3 }}>
           {detailsDriver && (
-            <Stack spacing={3} sx={{ mt: 1 }}>
+            <Stack spacing={3}>
               {/* Basic Information */}
               <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#667eea' }}>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    fontWeight: 700, 
+                    mb: 2.5, 
+                    color: '#333',
+                    fontSize: '1rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    '&:before': {
+                      content: '""',
+                      width: 4,
+                      height: 20,
+                      backgroundColor: '#333',
+                      borderRadius: 1
+                    }
+                  }}
+                >
                   {t('Basic Information')}
                 </Typography>
-                <Grid container spacing={2}>
+                <Grid container spacing={3}>
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
-                      {t('Name')}
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {detailsDriver.name}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
-                      {t('Resident ID')}
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {detailsDriver.residentId}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
-                      {t('Talabat ID')}
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {detailsDriver.talabatid}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
-                      {t('Personal Number')}
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {detailsDriver.personalNumber}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
-                      {t('Status')}
-                    </Typography>
-                    <Chip
-                      label={getStatusColor(detailsDriver.status).label}
-                      size="small"
-                      sx={{
-                        background: getStatusColor(detailsDriver.status).bg,
-                        color: getStatusColor(detailsDriver.status).color,
-                        fontWeight: 700,
-                        borderRadius: 2,
-                        px: 1,
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                        border: 'none'
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
                       }}
-                    />
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Name')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {detailsDriver.name}
+                      </Typography>
+                    </Box>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
-                      {t('Created At')}
-                    </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {new Date(detailsDriver.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </Typography>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Resident ID')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {detailsDriver.residentId}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Talabat ID')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {detailsDriver.talabatid}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Personal Number')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {detailsDriver.personalNumber}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Status')}
+                      </Typography>
+                      <Chip
+                        label={getStatusColor(detailsDriver.status).label}
+                        size="small"
+                        sx={{
+                          background: getStatusColor(detailsDriver.status).bg,
+                          color: getStatusColor(detailsDriver.status).color,
+                          fontWeight: 700,
+                          borderRadius: 1.5,
+                          px: 1.5,
+                          height: 28,
+                          fontSize: '0.8125rem'
+                        }}
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Created At')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {new Date(detailsDriver.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </Typography>
+                    </Box>
                   </Grid>
                 </Grid>
               </Box>
 
-              <Divider />
+              <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.08)' }} />
 
               {/* Media Files */}
               <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#667eea' }}>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    fontWeight: 700, 
+                    mb: 2.5, 
+                    color: '#333',
+                    fontSize: '1rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    '&:before': {
+                      content: '""',
+                      width: 4,
+                      height: 20,
+                      backgroundColor: '#333',
+                      borderRadius: 1
+                    }
+                  }}
+                >
                   {t('Documents & Media')}
                 </Typography>
                 {detailsDriver.media && detailsDriver.media.length > 0 ? (
@@ -1298,9 +1450,11 @@ export default function DriverListPage() {
                               borderRadius: 2,
                               overflow: 'hidden',
                               transition: 'all 0.3s ease',
+                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
                               '&:hover': {
-                                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)',
-                                transform: 'translateY(-2px)'
+                                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+                                transform: 'translateY(-2px)',
+                                borderColor: 'rgba(0, 0, 0, 0.12)'
                               }
                             }}
                           >
@@ -1311,8 +1465,9 @@ export default function DriverListPage() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                backgroundColor: '#f5f5f5',
-                                overflow: 'hidden'
+                                backgroundColor: '#fafafa',
+                                overflow: 'hidden',
+                                borderBottom: '1px solid rgba(0, 0, 0, 0.06)'
                               }}
                             >
                               {isImage ? (
@@ -1330,18 +1485,18 @@ export default function DriverListPage() {
                                 />
                               ) : (
                                 <Box sx={{ textAlign: 'center', p: 2 }}>
-                                  <AppIcon name="file" size="large" sx={{ color: '#667eea', mb: 1, fontSize: 48 }} />
-                                  <Typography variant="caption" sx={{ display: 'block', wordBreak: 'break-word' }}>
+                                  <AppIcon name="file" size="large" sx={{ color: '#666', mb: 1, fontSize: 48 }} />
+                                  <Typography variant="caption" sx={{ display: 'block', wordBreak: 'break-word', color: '#999' }}>
                                     {media.name}
                                   </Typography>
                                 </Box>
                               )}
                             </Box>
-                            <CardContent sx={{ p: 1.5 }}>
-                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                            <CardContent sx={{ p: 2 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5, color: '#333' }}>
                                 {getFileTypeLabel(media.fileType)}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, color: '#999' }}>
                                 {media.name}
                               </Typography>
                               <Button
@@ -1352,11 +1507,13 @@ export default function DriverListPage() {
                                 rel="noopener noreferrer"
                                 sx={{
                                   width: '100%',
-                                  borderColor: '#667eea',
-                                  color: '#667eea',
+                                  borderColor: '#333',
+                                  color: '#333',
+                                  fontWeight: 600,
                                   '&:hover': {
-                                    borderColor: '#764ba2',
-                                    backgroundColor: 'rgba(102, 126, 234, 0.05)'
+                                    borderColor: '#000',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                    color: '#000'
                                   }
                                 }}
                               >
@@ -1369,7 +1526,18 @@ export default function DriverListPage() {
                     })}
                   </Grid>
                 ) : (
-                  <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  <Alert 
+                    severity="info" 
+                    sx={{ 
+                      borderRadius: 2,
+                      backgroundColor: '#fafafa',
+                      border: '1px solid rgba(0, 0, 0, 0.08)',
+                      color: '#666',
+                      '& .MuiAlert-icon': {
+                        color: '#666'
+                      }
+                    }}
+                  >
                     {t('No media files available')}
                   </Alert>
                 )}
@@ -1377,19 +1545,55 @@ export default function DriverListPage() {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2.5 }}>
+        <DialogActions 
+          sx={{ 
+            px: 3, 
+            py: 2.5,
+            borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+            backgroundColor: '#fafafa',
+            gap: 1.5
+          }}
+        >
           <Button 
             onClick={handleCloseDetailsDialog}
-            variant="contained"
+            variant="outlined"
             sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              borderColor: '#ddd',
+              color: '#666',
+              fontWeight: 600,
               '&:hover': {
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderColor: '#999',
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                color: '#333'
               }
             }}
           >
             {t('Close')}
           </Button>
+          {detailsDriver && (
+            <Button 
+              onClick={() => {
+                handleOpenEditDialog(detailsDriver);
+                handleCloseDetailsDialog();
+              }}
+              variant="contained"
+              startIcon={<AppIcon name="edit" />}
+              sx={{
+                backgroundColor: '#333',
+                color: 'white',
+                fontWeight: 600,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                '&:hover': {
+                  backgroundColor: '#000',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                  transform: 'translateY(-1px)'
+                },
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {t('Edit Driver')}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
