@@ -21,7 +21,6 @@ import {
   Alert,
   Chip,
   IconButton,
-  Tooltip,
   Menu,
   MenuItem,
   ListItemIcon,
@@ -62,6 +61,14 @@ interface DriverSearchInput {
   PageSize: number;
 }
 
+interface MediaItem {
+  id: number;
+  name: string;
+  path: string;
+  type: number;
+  fileType: number;
+}
+
 interface DriverItem {
   id: number;
   name: string;
@@ -71,6 +78,7 @@ interface DriverItem {
   status: number;
   createdAt: string;
   updatedAt: string;
+  media: MediaItem[];
 }
 
 interface DriverSearchResponse {
@@ -98,6 +106,10 @@ export default function DriverListPage() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedDriver, setSelectedDriver] = useState<DriverItem | null>(null);
   
+  // Driver Details Dialog State
+  const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
+  const [detailsDriver, setDetailsDriver] = useState<DriverItem | null>(null);
+  
   // Add Driver Dialog State
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
@@ -124,6 +136,12 @@ export default function DriverListPage() {
     talabatid: '',
     personalNumber: ''
   });
+  const [editDriverFiles, setEditDriverFiles] = useState({
+    idCard: null as File | null,
+    license: null as File | null,
+    profileImage: null as File | null,
+    approval: null as File | null
+  });
 
   useEffect(() => {
     handleSearch();
@@ -148,7 +166,14 @@ export default function DriverListPage() {
       );
 
       if (response.success && response.data) {
-        setSearchResults(response.data as DriverSearchResponse);
+        // New API structure: response.data.data contains the actual data
+        const responseData = response.data as any;
+        if (responseData.data) {
+          setSearchResults(responseData.data as DriverSearchResponse);
+        } else {
+          // Fallback to direct data if structure is different
+          setSearchResults(responseData as DriverSearchResponse);
+        }
       } else {
         toast.error(response.description || t('Failed to load drivers'));
       }
@@ -212,6 +237,10 @@ export default function DriverListPage() {
 
   const handleFileChange = (field: keyof typeof driverFiles, file: File | null) => {
     setDriverFiles(prev => ({ ...prev, [field]: file }));
+  };
+
+  const handleEditFileChange = (field: keyof typeof editDriverFiles, file: File | null) => {
+    setEditDriverFiles(prev => ({ ...prev, [field]: file }));
   };
 
   const uploadMediaFile = async (file: File, fileType: FileType): Promise<number> => {
@@ -332,6 +361,12 @@ export default function DriverListPage() {
       talabatid: '',
       personalNumber: ''
     });
+    setEditDriverFiles({
+      idCard: null,
+      license: null,
+      profileImage: null,
+      approval: null
+    });
   };
 
   const handleEditDriverChange = (field: string, value: string) => {
@@ -349,11 +384,67 @@ export default function DriverListPage() {
 
     setEditLoading(true);
     try {
+      let mediaIds: number[] = [];
+
+      // Check if any new files are uploaded
+      const hasNewFiles = editDriverFiles.idCard || editDriverFiles.license || editDriverFiles.profileImage || editDriverFiles.approval;
+
+      if (hasNewFiles) {
+        // Upload new files if provided
+        if (editDriverFiles.idCard) {
+          const idCardMediaId = await uploadMediaFile(editDriverFiles.idCard, FileType.IdCard);
+          mediaIds.push(idCardMediaId);
+        }
+        if (editDriverFiles.license) {
+          const licenseMediaId = await uploadMediaFile(editDriverFiles.license, FileType.License);
+          mediaIds.push(licenseMediaId);
+        }
+        if (editDriverFiles.profileImage) {
+          const profileImageMediaId = await uploadMediaFile(editDriverFiles.profileImage, FileType.Other);
+          mediaIds.push(profileImageMediaId);
+        }
+        if (editDriverFiles.approval) {
+          const approvalMediaId = await uploadMediaFile(editDriverFiles.approval, FileType.Prove);
+          mediaIds.push(approvalMediaId);
+        }
+
+        // Include existing media IDs for files not being updated
+        if (editingDriver.media && editingDriver.media.length > 0) {
+          // File types that are being replaced (don't include their existing IDs)
+          const replacedFileTypes = new Set<number>();
+          if (editDriverFiles.idCard) replacedFileTypes.add(FileType.IdCard);
+          if (editDriverFiles.license) replacedFileTypes.add(FileType.License);
+          if (editDriverFiles.profileImage) replacedFileTypes.add(FileType.Other);
+          if (editDriverFiles.approval) replacedFileTypes.add(FileType.Prove);
+
+          // Add existing media IDs that are not being replaced
+          editingDriver.media.forEach(media => {
+            if (!replacedFileTypes.has(media.fileType)) {
+              mediaIds.push(media.id);
+            }
+          });
+        }
+      } else {
+        // No new files uploaded, use all existing media IDs
+        if (editingDriver.media && editingDriver.media.length > 0) {
+          mediaIds = editingDriver.media.map(media => media.id);
+        }
+      }
+
+      // Update driver with mediaIds
+      const driverPayload = {
+        name: editDriver.name,
+        residentId: editDriver.residentId,
+        talabatid: editDriver.talabatid,
+        personalNumber: editDriver.personalNumber,
+        mediaIds: mediaIds
+      };
+
       const response = await apiFetcher(
         CONFIG.admin.driver.update(editingDriver.id.toString()),
         ApiRequestType.Put,
         undefined,
-        editDriver
+        driverPayload
       );
 
       if (response.success) {
@@ -391,6 +482,39 @@ export default function DriverListPage() {
           label: t('Unknown') 
         };
     }
+  };
+
+  const handleRowClick = (driver: DriverItem) => {
+    setDetailsDriver(driver);
+    setOpenDetailsDialog(true);
+  };
+
+  const handleCloseDetailsDialog = () => {
+    setOpenDetailsDialog(false);
+    setDetailsDriver(null);
+  };
+
+  const getFileTypeLabel = (fileType: number): string => {
+    switch (fileType) {
+      case FileType.Passport:
+        return t('Passport');
+      case FileType.License:
+        return t('License');
+      case FileType.IdCard:
+        return t('Id Card');
+      case FileType.Prove:
+        return t('Approval');
+      case FileType.Other:
+        return t('Profile Image');
+      default:
+        return t('Other');
+    }
+  };
+
+  const isImageFile = (fileType: number, fileName: string): boolean => {
+    if (fileType === FileType.Other) return true; // Profile images are always images
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+    return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
   };
 
   return (
@@ -609,9 +733,11 @@ export default function DriverListPage() {
                             return (
                               <TableRow 
                                 key={driver.id}
+                                onClick={() => handleRowClick(driver)}
                                 sx={{
                                   backgroundColor: index % 2 === 0 ? 'rgba(102, 126, 234, 0.04)' : 'white',
                                   borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+                                  cursor: 'pointer',
                                   '&:hover': {
                                     backgroundColor: 'rgba(102, 126, 234, 0.12)',
                                     transform: 'scale(1.001)',
@@ -656,7 +782,7 @@ export default function DriverListPage() {
                                     minute: '2-digit'
                                   })}
                                 </TableCell>
-                                <TableCell sx={{ py: 2.5 }}>
+                                <TableCell sx={{ py: 2.5 }} onClick={(e) => e.stopPropagation()}>
                                   <IconButton 
                                     onClick={(e) => handleMenuOpen(e, driver)}
                                     sx={{
@@ -684,11 +810,13 @@ export default function DriverListPage() {
                         return (
                           <Card 
                             key={driver.id}
+                            onClick={() => handleRowClick(driver)}
                             sx={{
                               background: '#ffffff',
                               boxShadow: '0 2px 12px rgba(0, 0, 0, 0.12)',
                               borderRadius: 2,
                               border: '1px solid rgba(0, 0, 0, 0.08)',
+                              cursor: 'pointer',
                               transition: 'all 0.3s ease',
                               '&:hover': {
                                 boxShadow: '0 6px 24px rgba(102, 126, 234, 0.25)',
@@ -750,7 +878,7 @@ export default function DriverListPage() {
                                   </Typography>
                                 </Box>
                               </Stack>
-                              <Box sx={{ mt: 2, textAlign: 'right' }}>
+                              <Box sx={{ mt: 2, textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
                                 <IconButton 
                                   onClick={(e) => handleMenuOpen(e, driver)}
                                   sx={{
@@ -1055,11 +1183,425 @@ export default function DriverListPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Driver Details Dialog */}
+      <Dialog 
+        open={openDetailsDialog} 
+        onClose={handleCloseDetailsDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+            border: '1px solid rgba(0, 0, 0, 0.06)'
+          }
+        }}
+      >
+        <DialogTitle 
+          sx={{ 
+            pb: 2,
+            pt: 3,
+            px: 3,
+            borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
+            background: 'linear-gradient(to bottom, #fafafa, #ffffff)'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: '#333', mb: 0.5 }}>
+                {t('Driver Details')}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                {t('View driver information and documents')}
+              </Typography>
+            </Box>
+            <IconButton 
+              onClick={handleCloseDetailsDialog}
+              sx={{
+                color: '#666',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                  color: '#333'
+                }
+              }}
+            >
+              <AppIcon name="close" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, py: 3 }}>
+          {detailsDriver && (
+            <Stack spacing={3}>
+              {/* Basic Information */}
+              <Box>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    fontWeight: 700, 
+                    mb: 2.5, 
+                    color: '#333',
+                    fontSize: '1rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    '&:before': {
+                      content: '""',
+                      width: 4,
+                      height: 20,
+                      backgroundColor: '#333',
+                      borderRadius: 1
+                    }
+                  }}
+                >
+                  {t('Basic Information')}
+                </Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Name')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {detailsDriver.name}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Resident ID')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {detailsDriver.residentId}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Talabat ID')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {detailsDriver.talabatid}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Personal Number')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {detailsDriver.personalNumber}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Status')}
+                      </Typography>
+                      <Chip
+                        label={getStatusColor(detailsDriver.status).label}
+                        size="small"
+                        sx={{
+                          background: getStatusColor(detailsDriver.status).bg,
+                          color: getStatusColor(detailsDriver.status).color,
+                          fontWeight: 700,
+                          borderRadius: 1.5,
+                          px: 1.5,
+                          height: 28,
+                          fontSize: '0.8125rem'
+                        }}
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box 
+                      sx={{ 
+                        p: 2, 
+                        borderRadius: 2, 
+                        backgroundColor: '#fafafa',
+                        border: '1px solid rgba(0, 0, 0, 0.06)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: '#f5f5f5',
+                          borderColor: 'rgba(0, 0, 0, 0.1)'
+                        }
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#999', mb: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {t('Created At')}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#333' }}>
+                        {new Date(detailsDriver.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider sx={{ borderColor: 'rgba(0, 0, 0, 0.08)' }} />
+
+              {/* Media Files */}
+              <Box>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    fontWeight: 700, 
+                    mb: 2.5, 
+                    color: '#333',
+                    fontSize: '1rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    '&:before': {
+                      content: '""',
+                      width: 4,
+                      height: 20,
+                      backgroundColor: '#333',
+                      borderRadius: 1
+                    }
+                  }}
+                >
+                  {t('Documents & Media')}
+                </Typography>
+                {detailsDriver.media && detailsDriver.media.length > 0 ? (
+                  <Grid container spacing={2}>
+                    {detailsDriver.media.map((media) => {
+                      const mediaUrl = `${CONFIG.assetsNewUrl}${media.path}`;
+                      const isImage = isImageFile(media.fileType, media.name);
+                      
+                      return (
+                        <Grid item xs={12} sm={6} md={4} key={media.id}>
+                          <Card
+                            sx={{
+                              border: '1px solid rgba(0, 0, 0, 0.08)',
+                              borderRadius: 2,
+                              overflow: 'hidden',
+                              transition: 'all 0.3s ease',
+                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                              '&:hover': {
+                                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+                                transform: 'translateY(-2px)',
+                                borderColor: 'rgba(0, 0, 0, 0.12)'
+                              }
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                width: '100%',
+                                height: 200,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#fafafa',
+                                overflow: 'hidden',
+                                borderBottom: '1px solid rgba(0, 0, 0, 0.06)'
+                              }}
+                            >
+                              {isImage ? (
+                                <img
+                                  src={mediaUrl}
+                                  alt={media.name}
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                  }}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="14" x="50%" y="50%" text-anchor="middle" dy=".3em"%3EImage%3C/text%3E%3C/svg%3E';
+                                  }}
+                                />
+                              ) : (
+                                <Box sx={{ textAlign: 'center', p: 2 }}>
+                                  <AppIcon name="file" size="large" sx={{ color: '#666', mb: 1, fontSize: 48 }} />
+                                  <Typography variant="caption" sx={{ display: 'block', wordBreak: 'break-word', color: '#999' }}>
+                                    {media.name}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
+                            <CardContent sx={{ p: 2 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5, color: '#333' }}>
+                                {getFileTypeLabel(media.fileType)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, color: '#999' }}>
+                                {media.name}
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                href={mediaUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{
+                                  width: '100%',
+                                  borderColor: '#333',
+                                  color: '#333',
+                                  fontWeight: 600,
+                                  '&:hover': {
+                                    borderColor: '#000',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                                    color: '#000'
+                                  }
+                                }}
+                              >
+                                {t('View')}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                ) : (
+                  <Alert 
+                    severity="info" 
+                    sx={{ 
+                      borderRadius: 2,
+                      backgroundColor: '#fafafa',
+                      border: '1px solid rgba(0, 0, 0, 0.08)',
+                      color: '#666',
+                      '& .MuiAlert-icon': {
+                        color: '#666'
+                      }
+                    }}
+                  >
+                    {t('No media files available')}
+                  </Alert>
+                )}
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions 
+          sx={{ 
+            px: 3, 
+            py: 2.5,
+            borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+            backgroundColor: '#fafafa',
+            gap: 1.5
+          }}
+        >
+          <Button 
+            onClick={handleCloseDetailsDialog}
+            variant="outlined"
+            sx={{
+              borderColor: '#ddd',
+              color: '#666',
+              fontWeight: 600,
+              '&:hover': {
+                borderColor: '#999',
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                color: '#333'
+              }
+            }}
+          >
+            {t('Close')}
+          </Button>
+          {detailsDriver && (
+            <Button 
+              onClick={() => {
+                handleOpenEditDialog(detailsDriver);
+                handleCloseDetailsDialog();
+              }}
+              variant="contained"
+              startIcon={<AppIcon name="edit" />}
+              sx={{
+                backgroundColor: '#333',
+                color: 'white',
+                fontWeight: 600,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                '&:hover': {
+                  backgroundColor: '#000',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                  transform: 'translateY(-1px)'
+                },
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {t('Edit Driver')}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
       {/* Edit Driver Dialog */}
       <Dialog 
         open={openEditDialog} 
         onClose={handleCloseEditDialog}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
@@ -1074,45 +1616,347 @@ export default function DriverListPage() {
           </Typography>
         </DialogTitle>
         <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1 }}>
-            <TextField
-              label={t('Name')}
-              value={editDriver.name}
-              onChange={(e) => handleEditDriverChange('name', e.target.value)}
-              fullWidth
-              required
-              disabled={editLoading}
-            />
-            <TextField
-              label={t('Resident ID')}
-              value={editDriver.residentId}
-              onChange={(e) => handleEditDriverChange('residentId', e.target.value)}
-              fullWidth
-              required
-              disabled={editLoading}
-            />
-            <TextField
-              label={t('Talabat ID')}
-              value={editDriver.talabatid}
-              onChange={(e) => handleEditDriverChange('talabatid', e.target.value)}
-              fullWidth
-              required
-              disabled={editLoading}
-            />
-            <TextField
-              label={t('Personal Number')}
-              value={editDriver.personalNumber}
-              onChange={(e) => handleEditDriverChange('personalNumber', e.target.value)}
-              fullWidth
-              required
-              disabled={editLoading}
-            />
-          </Stack>
+          {editingDriver && (
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              {/* Basic Information */}
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#667eea' }}>
+                  {t('Basic Information')}
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
+                      {t('Name')}
+                    </Typography>
+                    <TextField
+                      value={editDriver.name}
+                      onChange={(e) => handleEditDriverChange('name', e.target.value)}
+                      fullWidth
+                      required
+                      disabled={editLoading}
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          }
+                        }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
+                      {t('Resident ID')}
+                    </Typography>
+                    <TextField
+                      value={editDriver.residentId}
+                      onChange={(e) => handleEditDriverChange('residentId', e.target.value)}
+                      fullWidth
+                      required
+                      disabled={editLoading}
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          }
+                        }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
+                      {t('Talabat ID')}
+                    </Typography>
+                    <TextField
+                      value={editDriver.talabatid}
+                      onChange={(e) => handleEditDriverChange('talabatid', e.target.value)}
+                      fullWidth
+                      required
+                      disabled={editLoading}
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          }
+                        }
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 0.5 }}>
+                      {t('Personal Number')}
+                    </Typography>
+                    <TextField
+                      value={editDriver.personalNumber}
+                      onChange={(e) => handleEditDriverChange('personalNumber', e.target.value)}
+                      fullWidth
+                      required
+                      disabled={editLoading}
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover fieldset': {
+                            borderColor: '#667eea',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#667eea',
+                          }
+                        }
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* Current Media Files */}
+              {editingDriver.media && editingDriver.media.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#667eea' }}>
+                    {t('Current Documents & Media')}
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {editingDriver.media.map((media) => {
+                      const mediaUrl = `${CONFIG.assetsNewUrl}${media.path}`;
+                      const isImage = isImageFile(media.fileType, media.name);
+                      
+                      return (
+                        <Grid item xs={12} sm={6} md={4} key={media.id}>
+                          <Card
+                            sx={{
+                              border: '1px solid rgba(0, 0, 0, 0.08)',
+                              borderRadius: 2,
+                              overflow: 'hidden',
+                              transition: 'all 0.3s ease',
+                              '&:hover': {
+                                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)',
+                                transform: 'translateY(-2px)'
+                              }
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                width: '100%',
+                                height: 200,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#f5f5f5',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              {isImage ? (
+                                <img
+                                  src={mediaUrl}
+                                  alt={media.name}
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                  }}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" font-family="sans-serif" font-size="14" x="50%" y="50%" text-anchor="middle" dy=".3em"%3EImage%3C/text%3E%3C/svg%3E';
+                                  }}
+                                />
+                              ) : (
+                                <Box sx={{ textAlign: 'center', p: 2 }}>
+                                  <AppIcon name="file" size="large" sx={{ color: '#667eea', mb: 1, fontSize: 48 }} />
+                                  <Typography variant="caption" sx={{ display: 'block', wordBreak: 'break-word' }}>
+                                    {media.name}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
+                            <CardContent sx={{ p: 1.5 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                {getFileTypeLabel(media.fileType)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                {media.name}
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                href={mediaUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{
+                                  width: '100%',
+                                  borderColor: '#667eea',
+                                  color: '#667eea',
+                                  '&:hover': {
+                                    borderColor: '#764ba2',
+                                    backgroundColor: 'rgba(102, 126, 234, 0.05)'
+                                  }
+                                }}
+                              >
+                                {t('View')}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
+                  </Grid>
+                </Box>
+              )}
+
+              {/* Update Documents Section */}
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#667eea' }}>
+                  {t('Update Documents')}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2, color: '#666', fontStyle: 'italic' }}>
+                  {t('Optional - Upload new files to replace existing ones. Leave empty to keep current files.')}
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 1 }}>
+                        {t('Id Card')}
+                      </Typography>
+                      <Input
+                        type="file"
+                        inputProps={{ accept: 'image/*,.pdf' }}
+                        onChange={(e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0] || null;
+                          handleEditFileChange('idCard', file);
+                        }}
+                        disabled={editLoading}
+                        sx={{ 
+                          width: '100%',
+                          '&:before': {
+                            borderColor: '#667eea',
+                          },
+                          '&:hover:not(.Mui-disabled):before': {
+                            borderColor: '#667eea',
+                          }
+                        }}
+                      />
+                      {editDriverFiles.idCard && (
+                        <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block', fontWeight: 600 }}>
+                          {t('New file')}: {editDriverFiles.idCard.name}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 1 }}>
+                        {t('License')}
+                      </Typography>
+                      <Input
+                        type="file"
+                        inputProps={{ accept: 'image/*,.pdf' }}
+                        onChange={(e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0] || null;
+                          handleEditFileChange('license', file);
+                        }}
+                        disabled={editLoading}
+                        sx={{ 
+                          width: '100%',
+                          '&:before': {
+                            borderColor: '#667eea',
+                          },
+                          '&:hover:not(.Mui-disabled):before': {
+                            borderColor: '#667eea',
+                          }
+                        }}
+                      />
+                      {editDriverFiles.license && (
+                        <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block', fontWeight: 600 }}>
+                          {t('New file')}: {editDriverFiles.license.name}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 1 }}>
+                        {t('Profile Image')}
+                      </Typography>
+                      <Input
+                        type="file"
+                        inputProps={{ accept: 'image/*' }}
+                        onChange={(e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0] || null;
+                          handleEditFileChange('profileImage', file);
+                        }}
+                        disabled={editLoading}
+                        sx={{ 
+                          width: '100%',
+                          '&:before': {
+                            borderColor: '#667eea',
+                          },
+                          '&:hover:not(.Mui-disabled):before': {
+                            borderColor: '#667eea',
+                          }
+                        }}
+                      />
+                      {editDriverFiles.profileImage && (
+                        <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block', fontWeight: 600 }}>
+                          {t('New file')}: {editDriverFiles.profileImage.name}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#666', mb: 1 }}>
+                        {t('Approval')}
+                      </Typography>
+                      <Input
+                        type="file"
+                        inputProps={{ accept: 'image/*,.pdf' }}
+                        onChange={(e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0] || null;
+                          handleEditFileChange('approval', file);
+                        }}
+                        disabled={editLoading}
+                        sx={{ 
+                          width: '100%',
+                          '&:before': {
+                            borderColor: '#667eea',
+                          },
+                          '&:hover:not(.Mui-disabled):before': {
+                            borderColor: '#667eea',
+                          }
+                        }}
+                      />
+                      {editDriverFiles.approval && (
+                        <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block', fontWeight: 600 }}>
+                          {t('New file')}: {editDriverFiles.approval.name}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+            </Stack>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2.5 }}>
           <Button 
             onClick={handleCloseEditDialog} 
             disabled={editLoading}
+            sx={{
+              color: '#667eea',
+              '&:hover': {
+                backgroundColor: 'rgba(102, 126, 234, 0.05)'
+              }
+            }}
           >
             {t('Cancel')}
           </Button>
@@ -1121,6 +1965,13 @@ export default function DriverListPage() {
             variant="contained"
             disabled={editLoading}
             startIcon={editLoading ? <CircularProgress size={20} color="inherit" /> : null}
+            sx={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+              }
+            }}
           >
             {editLoading ? t('Updating...') : t('Update Driver')}
           </Button>
