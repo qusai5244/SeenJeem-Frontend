@@ -22,7 +22,7 @@ export function DashboardContent({
   children,
   className,
   disablePadding,
-  maxWidth = 'lg',
+  maxWidth = 'xl',
   layoutQuery = 'lg',
   ...other
 }: DashboardContentProps) {
@@ -67,7 +67,7 @@ export function DashboardContent({
 // ----------------------------------------------------------------------
 
 export const VerticalDivider = styled('span')(({ theme }) => ({
-  width: 1,
+  width: 2,
   height: 10,
   flexShrink: 0,
   display: 'none',

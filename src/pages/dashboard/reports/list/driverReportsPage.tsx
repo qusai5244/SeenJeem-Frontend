@@ -22,11 +22,17 @@ import {
   Select,
   InputLabel,
   MenuItem,
-  Pagination,
   useMediaQuery,
   useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Menu,
 } from '@mui/material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AppIcon } from 'src/components/icons';
@@ -41,8 +47,6 @@ interface DriverReportSearchInput {
   DateFrom?: string;
   DateTo?: string;
   Search: string;
-  Page: number;
-  PageSize: number;
 }
 
 interface DriverOption {
@@ -64,6 +68,8 @@ interface DriverReport {
   totalCustomerTips: number;
   totalCash: number;
   totalKm: number;
+  totalCashOnDeliveries: number;
+  totalCashOnDeliveriesTalabat: number;
 }
 
 interface DriverReportResponse {
@@ -79,17 +85,20 @@ export default function DriverReportsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  // Set today's date as default
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+  const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
   const [searchData, setSearchData] = useState<DriverReportSearchInput>({
     DriverId: undefined,
-    DateFrom: undefined,
-    DateTo: undefined,
-    Search: '',
-    Page: 1,
-    PageSize: 10
+    DateFrom: startOfToday.toISOString(),
+    DateTo: endOfToday.toISOString(),
+    Search: ''
   });
 
-  const [dateFrom, setDateFrom] = useState<Date | null>(null);
-  const [dateTo, setDateTo] = useState<Date | null>(null);
+  const [dateFrom, setDateFrom] = useState<Date | null>(startOfToday);
+  const [dateTo, setDateTo] = useState<Date | null>(endOfToday);
 
   const [reportData, setReportData] = useState<DriverReportResponse | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
@@ -97,15 +106,30 @@ export default function DriverReportsPage() {
   const [driversLoading, setDriversLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
 
+  // Cash On Delivery Dialog States
+  const [codDialogOpen, setCodDialogOpen] = useState(false);
+  const [selectedDriver, setSelectedDriver] = useState<DriverReport | null>(null);
+  const [codAmount, setCodAmount] = useState<string>('');
+  const [codDate, setCodDate] = useState<Date | null>(new Date());
+  const [codLoading, setCodLoading] = useState(false);
+
+  // Talabat Cash On Delivery Dialog States
+  const [talabatCodDialogOpen, setTalabatCodDialogOpen] = useState(false);
+  const [talabatCodAmount, setTalabatCodAmount] = useState<string>('');
+  const [talabatCodDate, setTalabatCodDate] = useState<Date | null>(new Date());
+  const [talabatCodLoading, setTalabatCodLoading] = useState(false);
+
+  // Menu State
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [menuDriverId, setMenuDriverId] = useState<number | null>(null);
+
   // Load drivers list on mount
   useEffect(() => {
     loadDriversList();
+    handleSearch(); // Load today's data automatically
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    handleSearch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchData.Page, searchData.PageSize]);
 
   const loadDriversList = async () => {
     setDriversLoading(true);
@@ -131,12 +155,22 @@ export default function DriverReportsPage() {
 
   const handleDateFromChange = (date: Date | null) => {
     setDateFrom(date);
-    handleInputChange('DateFrom', date ? date.toISOString() : undefined);
+    if (date) {
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+      handleInputChange('DateFrom', startOfDay.toISOString());
+    } else {
+      handleInputChange('DateFrom', undefined);
+    }
   };
 
   const handleDateToChange = (date: Date | null) => {
     setDateTo(date);
-    handleInputChange('DateTo', date ? date.toISOString() : undefined);
+    if (date) {
+      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+      handleInputChange('DateTo', endOfDay.toISOString());
+    } else {
+      handleInputChange('DateTo', undefined);
+    }
   };
 
   const handleSearch = async () => {
@@ -149,8 +183,6 @@ export default function DriverReportsPage() {
       if (searchData.DateFrom) queryParams.append('DateFrom', searchData.DateFrom);
       if (searchData.DateTo) queryParams.append('DateTo', searchData.DateTo);
       if (searchData.Search) queryParams.append('Search', searchData.Search);
-      queryParams.append('Page', searchData.Page.toString());
-      queryParams.append('PageSize', searchData.PageSize.toString());
 
       const response = await apiFetcher(
         `${CONFIG.admin.driver.reports}?${queryParams.toString()}`,
@@ -169,26 +201,19 @@ export default function DriverReportsPage() {
     }
   };
 
-  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-    setSearchData(prev => ({ ...prev, Page: value }));
-  };
-
-  const handlePageSizeChange = (event: any) => {
-    const newPageSize = event.target.value as number;
-    setSearchData(prev => ({ ...prev, PageSize: newPageSize, Page: 1 }));
-  };
-
   const clearSearch = () => {
-    setSearchData(prev => ({
-      ...prev,
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    
+    setSearchData({
       DriverId: undefined,
-      DateFrom: undefined,
-      DateTo: undefined,
-      Search: '',
-      Page: 1
-    }));
-    setDateFrom(null);
-    setDateTo(null);
+      DateFrom: startOfToday.toISOString(),
+      DateTo: endOfToday.toISOString(),
+      Search: ''
+    });
+    setDateFrom(startOfToday);
+    setDateTo(endOfToday);
   };
 
   const handleDownloadExcel = async () => {
@@ -225,6 +250,7 @@ export default function DriverReportsPage() {
           'Customer Tips': report.totalCustomerTips.toFixed(2),
           'Total Cash': report.totalCash.toFixed(2),
           'Total KM': report.totalKm.toFixed(2),
+          'Total Cash On Deliveries': report.totalCashOnDeliveries.toFixed(2),
         }));
 
         // Create worksheet and workbook
@@ -257,6 +283,132 @@ export default function DriverReportsPage() {
       toast.error(error.message || t('Failed to download report'));
     } finally {
       setDownloadLoading(false);
+    }
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, driverId: number) => {
+    setAnchorEl(event.currentTarget);
+    setMenuDriverId(driverId);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setMenuDriverId(null);
+  };
+
+  const handleOpenCodDialog = (driver: DriverReport) => {
+    setSelectedDriver(driver);
+    setCodAmount('');
+    setCodDate(new Date());
+    setCodDialogOpen(true);
+    handleMenuClose(); // Close menu when opening dialog
+  };
+
+  const handleCloseCodDialog = () => {
+    setCodDialogOpen(false);
+    setSelectedDriver(null);
+    setCodAmount('');
+    setCodDate(new Date());
+  };
+
+  const handleAddCashOnDelivery = async () => {
+    if (!selectedDriver) return;
+    
+    const amount = parseFloat(codAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error(t('Please enter a valid amount'));
+      return;
+    }
+
+    if (!codDate) {
+      toast.error(t('Please select a date'));
+      return;
+    }
+
+    setCodLoading(true);
+    try {
+      const payload = {
+        amount: amount,
+        category: 1, // Driver
+        relatedEntityId: selectedDriver.id,
+        date: codDate.toISOString(),
+        isPaid: false
+      };
+
+      const response = await apiFetcher(
+        CONFIG.admin.driver.AddCashOnDelivery,
+        ApiRequestType.Post,
+        undefined, // params (not needed for this request)
+        payload // data (sent in request body)
+      );
+
+      if (response.success) {
+        toast.success(t('Cash on delivery added successfully'));
+        handleCloseCodDialog();
+        // Optionally refresh the reports
+        handleSearch();
+      } else {
+        toast.error(response.description || t('Failed to add cash on delivery'));
+      }
+    } catch (error: any) {
+      toast.error(error.message || t('Failed to add cash on delivery'));
+    } finally {
+      setCodLoading(false);
+    }
+  };
+
+  const handleOpenTalabatCodDialog = () => {
+    setTalabatCodAmount('');
+    setTalabatCodDate(new Date());
+    setTalabatCodDialogOpen(true);
+  };
+
+  const handleCloseTalabatCodDialog = () => {
+    setTalabatCodDialogOpen(false);
+    setTalabatCodAmount('');
+    setTalabatCodDate(new Date());
+  };
+
+  const handleAddTalabatCashOnDelivery = async () => {
+    const amount = parseFloat(talabatCodAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error(t('Please enter a valid amount'));
+      return;
+    }
+
+    if (!talabatCodDate) {
+      toast.error(t('Please select a date'));
+      return;
+    }
+
+    setTalabatCodLoading(true);
+    try {
+      const payload = {
+        amount: amount,
+        category: 2, // Talabat
+        relatedEntityId: 0,
+        date: talabatCodDate.toISOString(),
+        isPaid: false
+      };
+
+      const response = await apiFetcher(
+        CONFIG.admin.driver.AddCashOnDelivery,
+        ApiRequestType.Post,
+        undefined,
+        payload
+      );
+
+      if (response.success) {
+        toast.success(t('Talabat cash on delivery added successfully'));
+        handleCloseTalabatCodDialog();
+        handleSearch();
+      } else {
+        toast.error(response.description || t('Failed to add Talabat cash on delivery'));
+      }
+    } catch (error: any) {
+      toast.error(error.message || t('Failed to add Talabat cash on delivery'));
+    } finally {
+      setTalabatCodLoading(false);
     }
   };
 
@@ -342,7 +494,7 @@ export default function DriverReportsPage() {
             </Grid>
             <Grid item xs={12} md={3}>
               <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DateTimePicker
+                <DatePicker
                   label={t('Date From')}
                   value={dateFrom}
                   onChange={handleDateFromChange}
@@ -367,7 +519,7 @@ export default function DriverReportsPage() {
             </Grid>
             <Grid item xs={12} md={3}>
               <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DateTimePicker
+                <DatePicker
                   label={t('Date To')}
                   value={dateTo}
                   onChange={handleDateToChange}
@@ -471,6 +623,27 @@ export default function DriverReportsPage() {
                 {downloadLoading ? t('Downloading...') : t('Download Excel')}
               </Button>
             </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={handleOpenTalabatCodDialog}
+                disabled={reportLoading || downloadLoading}
+                startIcon={<AppIcon name="add" />}
+                sx={{
+                  py: 1.5,
+                  background: 'linear-gradient(135deg, #f77f00 0%, #d62828 100%)',
+                  boxShadow: '0 4px 15px rgba(247, 127, 0, 0.3)',
+                  '&:hover': {
+                    boxShadow: '0 6px 20px rgba(247, 127, 0, 0.5)',
+                    transform: 'translateY(-1px)',
+                  },
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                {t('Add Talabat COD')}
+              </Button>
+            </Grid>
           </Grid>
         </CardContent>
       </Card>
@@ -564,6 +737,12 @@ export default function DriverReportsPage() {
                             <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
                               {t('Total KM')}
                             </TableCell>
+                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
+                              {t('Cash On Deliveries')}
+                            </TableCell>
+                            <TableCell sx={{ color: '#212529', fontWeight: 700, fontSize: '0.95rem', py: 2.5, backgroundColor: '#e9ecef' }}>
+                              {t('Actions')}
+                            </TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -613,6 +792,22 @@ export default function DriverReportsPage() {
                               </TableCell>
                               <TableCell sx={{ color: '#666', py: 2.5, fontWeight: 600 }}>
                                 {report.totalKm.toFixed(2)}
+                              </TableCell>
+                              <TableCell sx={{ color: '#666', py: 2.5, fontWeight: 600 }}>
+                                {report.totalCashOnDeliveries.toFixed(2)}
+                              </TableCell>
+                              <TableCell sx={{ py: 2.5 }}>
+                                <IconButton
+                                  onClick={(event) => handleMenuOpen(event, report.id)}
+                                  sx={{
+                                    color: '#667eea',
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                    }
+                                  }}
+                                >
+                                  <MoreVertIcon />
+                                </IconButton>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -722,7 +917,35 @@ export default function DriverReportsPage() {
                                   {report.totalKm.toFixed(2)}
                                 </Typography>
                               </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#667eea' }}>
+                                  {t('Cash On Deliveries')}:
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#666', fontWeight: 600 }}>
+                                  {report.totalCashOnDeliveries.toFixed(2)}
+                                </Typography>
+                              </Box>
                             </Stack>
+                            <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(0, 0, 0, 0.08)' }}>
+                              <Button
+                                fullWidth
+                                variant="contained"
+                                size="medium"
+                                onClick={() => handleOpenCodDialog(report)}
+                                startIcon={<AppIcon name="add" />}
+                                sx={{
+                                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)',
+                                  '&:hover': {
+                                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.5)',
+                                    transform: 'translateY(-1px)',
+                                  },
+                                  transition: 'all 0.2s ease',
+                                }}
+                              >
+                                {t('Add Cash On Delivery')}
+                              </Button>
+                            </Box>
                           </CardContent>
                         </Card>
                       ))}
@@ -733,107 +956,419 @@ export default function DriverReportsPage() {
             </CardContent>
           </Card>
 
+          {/* Summary Section */}
           {reportData.items.length > 0 && (
-            <Box
-              sx={{
-                mt: 0,
-                p: 3,
-                display: 'flex',
-                flexDirection: { xs: 'column', sm: 'row' },
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: 2,
-                background: '#ffffff',
+            <Card 
+              sx={{ 
+                boxShadow: '0 6px 30px rgba(0, 0, 0, 0.15)',
                 borderRadius: 3,
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)',
-                border: '2px solid rgba(0, 0, 0, 0.06)'
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+                border: '2px solid rgba(102, 126, 234, 0.2)',
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box 
+              <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                <Typography 
+                  variant="h5" 
                   sx={{ 
-                    width: 40, 
-                    height: 40, 
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    fontWeight: 700,
+                    mb: 3,
+                    color: '#333',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontWeight: 700,
-                    fontSize: '0.875rem',
-                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)'
+                    gap: 1
                   }}
                 >
-                  {reportData.totalCount ?? reportData.items.length}
-                </Box>
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>
-                    {t('Showing')} {(searchData.Page - 1) * searchData.PageSize + 1} -{' '}
-                    {Math.min(searchData.Page * searchData.PageSize, reportData.totalCount ?? reportData.items.length)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {t('of')} {reportData.totalCount ?? reportData.items.length} {t('total reports')}
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-                <FormControl size="small">
-                  <Select 
-                    value={searchData.PageSize} 
-                    onChange={handlePageSizeChange}
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'rgba(102, 126, 234, 0.3)',
-                      },
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#667eea',
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#667eea',
-                      }
-                    }}
-                  >
-                    {[5, 10, 20, 50].map(size => (
-                      <MenuItem key={size} value={size}>
-                        {size} {t('per page')}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <Pagination
-                  count={reportData.totalPages ?? Math.ceil((reportData.totalCount ?? reportData.items.length) / searchData.PageSize)}
-                  page={searchData.Page}
-                  onChange={handlePageChange}
-                  showFirstButton
-                  showLastButton
-                  size={isMobile ? 'small' : 'medium'}
-                  sx={{
-                    '& .MuiPaginationItem-root': {
-                      borderRadius: 2,
-                      fontWeight: 600,
-                      '&:hover': {
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                      }
-                    },
-                    '& .Mui-selected': {
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important',
-                      color: 'white',
-                      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
-                      '&:hover': {
+                  <AppIcon name="analytics" />
+                  {t('Summary')}
+                </Typography>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <Box 
+                      sx={{ 
+                        p: 3,
+                        borderRadius: 2,
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      }
-                    }
-                  }}
-                />
-              </Box>
-            </Box>
+                        boxShadow: '0 4px 20px rgba(102, 126, 234, 0.3)',
+                        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: '0 8px 30px rgba(102, 126, 234, 0.4)',
+                        }
+                      }}
+                    >
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          fontWeight: 600,
+                          mb: 1,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        {t('Total Cash On Deliveries (With Drivers)')}
+                      </Typography>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          gap: 0.5
+                        }}
+                      >
+                        {reportData.items.reduce((sum, item) => sum + item.totalCashOnDeliveries, 0).toFixed(2)}
+                        <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                          {t('OMR')}
+                        </Typography>
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12} md={6}>
+                    <Box 
+                      sx={{ 
+                        p: 3,
+                        borderRadius: 2,
+                        background: 'linear-gradient(135deg, #06d6a0 0%, #118ab2 100%)',
+                        boxShadow: '0 4px 20px rgba(6, 214, 160, 0.3)',
+                        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: '0 8px 30px rgba(6, 214, 160, 0.4)',
+                        }
+                      }}
+                    >
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          fontWeight: 600,
+                          mb: 1,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        {t('Total Cash On Deliveries (From Talabat)')}
+                      </Typography>
+                      <Typography 
+                        variant="h3" 
+                        sx={{ 
+                          color: '#ffffff',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          gap: 0.5
+                        }}
+                      >
+                        {reportData.items.length > 0 ? reportData.items[0].totalCashOnDeliveriesTalabat.toFixed(2) : '0.00'}
+                        <Typography variant="h6" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                          {t('OMR')}
+                        </Typography>
+                      </Typography>
+                    </Box>
+                  </Grid>
+
+                  {/* Difference Card */}
+                  <Grid item xs={12}>
+                    <Box 
+                      sx={{ 
+                        p: 3,
+                        borderRadius: 2,
+                        background: '#ffffff',
+                        border: '2px solid rgba(102, 126, 234, 0.2)',
+                        boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
+                      }}
+                    >
+                      <Typography 
+                        variant="body1" 
+                        sx={{ 
+                          color: '#666',
+                          fontWeight: 600,
+                          mb: 1
+                        }}
+                      >
+                        {t('Difference')}:
+                      </Typography>
+                      <Typography 
+                        variant="h4" 
+                        sx={{ 
+                          color: '#667eea',
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          gap: 0.5
+                        }}
+                      >
+                        {Math.abs(
+                          reportData.items.reduce((sum, item) => sum + item.totalCashOnDeliveries, 0) -
+                          (reportData.items.length > 0 ? reportData.items[0].totalCashOnDeliveriesTalabat : 0)
+                        ).toFixed(2)}
+                        <Typography variant="body1" sx={{ color: '#888' }}>
+                          {t('OMR')}
+                        </Typography>
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
           )}
         </>
       ) : null}
+
+      {/* Actions Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+            mt: 1,
+            minWidth: 180,
+          }
+        }}
+      >
+        <MenuItem
+          onClick={() => {
+            const driver = reportData?.items.find(r => r.id === menuDriverId);
+            if (driver) handleOpenCodDialog(driver);
+          }}
+          sx={{
+            py: 1.5,
+            px: 2,
+            '&:hover': {
+              backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            }
+          }}
+        >
+          <AppIcon name="add" sx={{ mr: 1.5 }} />
+          {t('Add Cash On Delivery')}
+        </MenuItem>
+      </Menu>
+
+      {/* Add Cash On Delivery Dialog */}
+      <Dialog 
+        open={codDialogOpen} 
+        onClose={handleCloseCodDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 700, 
+          fontSize: '1.5rem',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          pb: 1
+        }}>
+          {t('Add Cash On Delivery')}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {selectedDriver && (
+            <Box sx={{ mb: 3, p: 2, backgroundColor: 'rgba(102, 126, 234, 0.08)', borderRadius: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333', mb: 0.5 }}>
+                {selectedDriver.name}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {t('Resident ID')}: {selectedDriver.residentId}
+              </Typography>
+            </Box>
+          )}
+          <Stack spacing={3}>
+            <TextField
+              label={t('Amount')}
+              type="number"
+              value={codAmount}
+              onChange={(e) => setCodAmount(e.target.value)}
+              fullWidth
+              required
+              disabled={codLoading}
+              inputProps={{ min: 0, step: 0.01 }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': {
+                    borderColor: '#667eea',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#667eea',
+                  }
+                }
+              }}
+            />
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label={t('Date')}
+                value={codDate}
+                onChange={(date) => setCodDate(date)}
+                disabled={codLoading}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: true,
+                    sx: {
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': {
+                          borderColor: '#667eea',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#667eea',
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </LocalizationProvider>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button 
+            onClick={handleCloseCodDialog}
+            disabled={codLoading}
+            sx={{
+              color: '#667eea',
+              '&:hover': {
+                backgroundColor: 'rgba(102, 126, 234, 0.08)',
+              }
+            }}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button
+            onClick={handleAddCashOnDelivery}
+            variant="contained"
+            disabled={codLoading}
+            startIcon={codLoading ? <CircularProgress size={20} color="inherit" /> : <AppIcon name="add" />}
+            sx={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+              '&:hover': {
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)',
+              },
+              px: 3
+            }}
+          >
+            {codLoading ? t('Adding...') : t('Add')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Talabat Cash On Delivery Dialog */}
+      <Dialog 
+        open={talabatCodDialogOpen} 
+        onClose={handleCloseTalabatCodDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 700, 
+          fontSize: '1.5rem',
+          background: 'linear-gradient(135deg, #f77f00 0%, #d62828 100%)',
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          pb: 1
+        }}>
+          {t('Add Talabat Cash On Delivery')}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Stack spacing={3}>
+            <TextField
+              label={t('Amount')}
+              type="number"
+              value={talabatCodAmount}
+              onChange={(e) => setTalabatCodAmount(e.target.value)}
+              fullWidth
+              required
+              disabled={talabatCodLoading}
+              inputProps={{ min: 0, step: 0.01 }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': {
+                    borderColor: '#f77f00',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: '#f77f00',
+                  }
+                }
+              }}
+            />
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <DatePicker
+                label={t('Date')}
+                value={talabatCodDate}
+                onChange={(date) => setTalabatCodDate(date)}
+                disabled={talabatCodLoading}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: true,
+                    sx: {
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': {
+                          borderColor: '#f77f00',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#f77f00',
+                        }
+                      }
+                    }
+                  }
+                }}
+              />
+            </LocalizationProvider>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button 
+            onClick={handleCloseTalabatCodDialog}
+            disabled={talabatCodLoading}
+            sx={{
+              color: '#f77f00',
+              '&:hover': {
+                backgroundColor: 'rgba(247, 127, 0, 0.08)',
+              }
+            }}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button
+            onClick={handleAddTalabatCashOnDelivery}
+            variant="contained"
+            disabled={talabatCodLoading}
+            startIcon={talabatCodLoading ? <CircularProgress size={20} color="inherit" /> : <AppIcon name="add" />}
+            sx={{
+              background: 'linear-gradient(135deg, #f77f00 0%, #d62828 100%)',
+              boxShadow: '0 4px 15px rgba(247, 127, 0, 0.3)',
+              '&:hover': {
+                boxShadow: '0 6px 20px rgba(247, 127, 0, 0.5)',
+              },
+              px: 3
+            }}
+          >
+            {talabatCodLoading ? t('Adding...') : t('Add')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
