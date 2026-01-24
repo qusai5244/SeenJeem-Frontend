@@ -58,9 +58,9 @@ export const allLangs = [
   {
     value: 'ar',
     label: 'Arabic',
-    countryCode: 'SA',
+    countryCode: 'OM',
     adapterLocale: 'ar-sa',
-    numberFormat: { code: 'ar', currency: 'AED' },
+    numberFormat: { code: 'ar', currency: 'OMR' },
     systemValue: {
       components: { ...arSACore.components, ...arSDDataGrid.components },
     },

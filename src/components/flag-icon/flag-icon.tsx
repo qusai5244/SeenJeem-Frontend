@@ -31,7 +31,7 @@ export const FlagIcon = forwardRef<HTMLSpanElement, FlagIconProps>((props, ref) 
       <FlagImg
         loading="lazy"
         alt={code}
-        src={`https://purecatamphetamine.github.io/country-flag-icons/3x2/${code?.toUpperCase()}.svg`}
+        src={`https://flagcdn.com/w40/${code?.toLowerCase()}.png`}
         className={flagIconClasses.img}
       />
     </FlagRoot>

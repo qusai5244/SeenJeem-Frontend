@@ -100,8 +100,12 @@ export const paths = {
       verify: `${ROOTS.AUTH_DEMO}/centered/verify`,
     },
   },
-  public : {
-    getQuizResults: (code: string) => `/api/quiz/${code}/results`,
+  public: {
+    root: '/',
+    contact: '/contact-us',
+    management: '/management',
+    localTeams: '/local-teams',
+    tournaments: '/tournaments',
   },
   // DASHBOARD
   dashboard: {
