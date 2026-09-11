@@ -102,10 +102,9 @@ export const paths = {
   },
   public: {
     root: '/',
-    contact: '/contact-us',
-    management: '/management',
-    localTeams: '/local-teams',
-    tournaments: '/tournaments',
+    newGame: '/new-game',
+    rules: '/rules',
+    game: (gameCode: string) => `/game/${gameCode}`,
   },
   // DASHBOARD
   dashboard: {

@@ -48,7 +48,8 @@ export enum ApiRequestType {
   Get = 1,
   Post = 2,
   Put = 3,
-  Delete = 4
+  Delete = 4,
+  Patch = 5
 }
 
 export const apiFetcher = async <T>(
@@ -81,6 +82,9 @@ export const apiFetcher = async <T>(
         break;
       case ApiRequestType.Put:
         response = await axios.put(`${baseURL}${url}`, data, { headers });
+        break;
+      case ApiRequestType.Patch:
+        response = await axios.patch(`${baseURL}${url}`, data, { headers });
         break;
       case ApiRequestType.Delete:
         response = await axios.delete(`${baseURL}${url}`, { 
@@ -228,7 +232,14 @@ export const endpoints = {
   status:  {
     list: '/api/public/Lookups',
 
-  }
+  },
+  game: {
+    categories: '/public/Category/GetCategories',
+    create: '/public/Game/CreateGame',
+    details: (code: string) => `/public/Game/GetGameDetails/${code}`,
+    progress: (code: string) => `/public/Game/UpdateGameProgress/${code}`,
+    complete: (code: string) => `/public/Game/CompleteGame/${code}`,
+  },
 
 };
 

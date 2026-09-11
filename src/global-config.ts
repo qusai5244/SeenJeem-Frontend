@@ -74,14 +74,14 @@ export type ConfigValue = {
 // ----------------------------------------------------------------------
 
 export const CONFIG: ConfigValue = {
-  appName: 'Drivers Management System',
+  appName: 'SeenJeem',
   appVersion: packageJson.version,
-  serverUrl: 'http://theresults-001-site4.ktempurl.com',
-  //serverUrl: 'https://localhost:7188',
+  serverUrl: 'https://localhost:7245',
+  //serverUrl: 'http://theresults-001-site4.ktempurl.com',
   filesDir: import.meta.env.VITE_FILES_DIR ?? '',
   assetsDir: import.meta.env.VITE_ASSETS_DIR ?? '',
-  assetsNewUrl: 'http://theresults-001-site4.ktempurl.com/uploads',
-  //assetsNewUrl: 'https://localhost:7188/uploads',
+  assetsNewUrl: 'https://localhost:7245/uploads',
+  //assetsNewUrl: 'http://theresults-001-site4.ktempurl.com/uploads',
 
   auth: {
     method: 'jwt',

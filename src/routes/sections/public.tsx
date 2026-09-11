@@ -7,11 +7,10 @@ import { PublicLayout } from 'src/layouts/public';
 
 // ----------------------------------------------------------------------
 
-const LandingPage = lazy(() => import('src/pages/public/landing'));
-const ContactPage = lazy(() => import('src/pages/public/contact'));
-const ManagementPage = lazy(() => import('src/pages/public/management'));
-const LocalTeamsPage = lazy(() => import('src/pages/public/local-teams'));
-const TournamentsPage = lazy(() => import('src/pages/public/tournaments'));
+const HomePage = lazy(() => import('src/pages/public/home'));
+const NewGamePage = lazy(() => import('src/pages/public/new-game'));
+const GamePage = lazy(() => import('src/pages/public/game'));
+const RulesPage = lazy(() => import('src/pages/public/rules'));
 
 // ----------------------------------------------------------------------
 
@@ -24,12 +23,10 @@ export const publicRoutes: RouteObject[] = [
       </Suspense>
     ),
     children: [
-      { index: true, element: <LandingPage /> },
-      { path: 'contact-us', element: <ContactPage /> },
-      { path: 'management', element: <ManagementPage /> },
-      { path: 'local-teams', element: <LocalTeamsPage /> },
-      { path: 'tournaments', element: <TournamentsPage /> },
+      { index: true, element: <HomePage /> },
+      { path: 'new-game', element: <NewGamePage /> },
+      { path: 'rules', element: <RulesPage /> },
+      { path: 'game/:gameCode', element: <GamePage /> },
     ],
   },
 ];
-
