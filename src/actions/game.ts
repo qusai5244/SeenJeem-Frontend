@@ -2,7 +2,9 @@ import type {
   Category,
   GameDetails,
   CreateGameInput,
+  AddQuestionInput,
   CreateGameOutput,
+  AddQuestionOutput,
   CompleteGameOutput,
   UpdateGameProgressInput,
 } from 'src/types/game';
@@ -30,3 +32,6 @@ export const updateGameProgress = (gameCode: string, input: UpdateGameProgressIn
 
 export const completeGame = (gameCode: string) =>
   apiFetcher<CompleteGameOutput>(endpoints.game.complete(gameCode), ApiRequestType.Post);
+
+export const addQuestion = (input: AddQuestionInput) =>
+  apiFetcher<AddQuestionOutput>(endpoints.game.addQuestion, ApiRequestType.Post, undefined, input);

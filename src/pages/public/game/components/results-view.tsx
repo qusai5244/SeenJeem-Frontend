@@ -1,92 +1,113 @@
 import type { GameTeam, GameQuestion } from 'src/types/game';
 
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 
+import { sj, sjText } from 'src/pages/public/components/sj-tokens';
 import { SjButton } from 'src/pages/public/components/sj-button';
-import { sjColor, sjFont } from 'src/pages/public/components/sj-tokens';
-import { BlueprintFrame } from 'src/pages/public/components/blueprint-frame';
+import { TeamHeaderCard } from 'src/pages/public/components/team-header-card';
+import type { TeamTone } from 'src/pages/public/components/sj-tokens';
 
 // ----------------------------------------------------------------------
+// ScreenResults — replaces the board the instant the 16th cell is answered.
+// See project/components/ScreenResults/README.md.
+// ----------------------------------------------------------------------
+
+const CONFETTI = [
+  { x: 6, color: 'brand', delay: 0 },
+  { x: 86, color: 'teamA', delay: 0.08 },
+  { x: 18, color: 'accent', delay: 0.16 },
+  { x: 78, color: 'success', delay: 0.05 },
+  { x: 94, color: 'teamA', delay: 0.22 },
+  { x: 30, color: 'brand', delay: 0.12 },
+  { x: 56, color: 'teamA', delay: 0.02 },
+  { x: 12, color: 'accent', delay: 0.28 },
+  { x: 68, color: 'brand', delay: 0.18 },
+  { x: 40, color: 'success', delay: 0.24 },
+] as const;
+
+function Confetti() {
+  return (
+    <Box aria-hidden sx={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+      {CONFETTI.map((piece, index) => (
+        <Box
+          key={index}
+          sx={{
+            position: 'absolute',
+            top: '8%',
+            left: `${piece.x}%`,
+            width: 8,
+            height: 8,
+            borderRadius: '2px',
+            bgcolor: sj[piece.color as keyof typeof sj],
+            opacity: 0,
+            animation: `sj-confetti-fall 900ms ease-out ${piece.delay}s 1 both`,
+          }}
+        />
+      ))}
+    </Box>
+  );
+}
 
 type Props = {
-  gameCode: string;
   teams: GameTeam[];
   questions: GameQuestion[];
   onNewGame: () => void;
   onGoHome: () => void;
 };
 
-export function ResultsView({ gameCode, teams, questions, onNewGame, onGoHome }: Props) {
+export function ResultsView({ teams, questions, onNewGame, onGoHome }: Props) {
   const sorted = [...teams].sort((a, b) => b.score - a.score);
   const tie = sorted.length > 1 && sorted[0].score === sorted[1].score;
+  const winner = !tie ? sorted[0] : null;
+  const winnerTone: TeamTone | null = winner ? (teams[0]?.id === winner.id ? 'a' : 'b') : null;
 
-  const winnerLine = sorted.length ? (tie ? 'It’s a tie' : `${sorted[0].name} wins`) : '';
-  const winnerSub = sorted.length
-    ? tie
-      ? `Both teams finished on ${sorted[0].score} points.`
-      : `${sorted[0].score} – ${sorted[1]?.score ?? 0} across ${questions.length} questions.`
-    : '';
+  const title = tie ? "It's a tie!" : `${winner?.name} wins!`;
+  const subtitle =
+    sorted.length > 1
+      ? tie
+        ? `Both teams finished on ${sorted[0].score} points.`
+        : `${sorted[0].score} to ${sorted[1].score} — great game.`
+      : '';
 
   return (
-    <Box>
-      <Box sx={{ bgcolor: sjColor.accent900, color: '#f2f2f3', p: { xs: 3.25, sm: 6 }, textAlign: 'center', mb: 3.25 }}>
-        <Typography sx={{ fontSize: 11, letterSpacing: '.24em', textTransform: 'uppercase', opacity: 0.75, mb: 1.25 }}>
-          Game {gameCode} · complete
-        </Typography>
-        <Typography
-          sx={{
-            fontFamily: sjFont.heading,
-            fontWeight: 600,
-            fontSize: { xs: 38, sm: 72 },
-            lineHeight: 1,
-            textTransform: 'uppercase',
-          }}
-        >
-          {winnerLine}
-        </Typography>
-        <Typography sx={{ fontSize: 16, opacity: 0.8, mt: 1.25 }}>{winnerSub}</Typography>
+    <Box sx={{ position: 'relative', textAlign: 'center', overflow: 'hidden', borderRadius: sj.radiusXl, bgcolor: sj.surface100, px: { xs: 3, sm: sj.space6 }, py: { xs: sj.space7, sm: sj.space8 } }}>
+      {winnerTone && <Confetti />}
+
+      <Box
+        sx={{
+          ...sjText.displayXl,
+          position: 'relative',
+          color: winnerTone ? sj[winnerTone === 'a' ? 'teamA' : 'teamB'] : sj.ink,
+          mb: sj.space2,
+        }}
+      >
+        {title}
       </Box>
+      <Box sx={{ ...sjText.bodySm, position: 'relative', color: sj.inkMuted, mb: sj.space7 }}>{subtitle}</Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 2.25 }}>
+      <Box sx={{ position: 'relative', display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: sj.space4, mb: sj.space6, textAlign: 'left' }}>
         {sorted.map((team, index) => {
-          const isWinner = index === 0 && !tie;
-          const tilesTaken = questions.filter((q) => q.solvedByTeamId === team.id).length;
-
+          const tone: TeamTone = teams[0]?.id === team.id ? 'a' : 'b';
+          const tilesTaken = questions.filter((question) => question.solvedByTeamId === team.id).length;
           return (
-            <BlueprintFrame
-              key={team.id}
-              cornerColor={isWinner ? sjColor.accent : undefined}
-              sx={{ p: 2.5, borderColor: isWinner ? sjColor.accent : sjColor.divider }}
-            >
-              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.25}>
-                <Typography sx={{ fontFamily: sjFont.heading, fontWeight: 600, fontSize: 26, textTransform: 'uppercase' }}>
-                  {team.name}
-                </Typography>
-                <Box sx={{ fontSize: 11, px: 1.25, py: 0.375, bgcolor: sjColor.accent100, color: sjColor.accent900 }}>
-                  {tie ? 'Tied' : index === 0 ? 'Winner' : 'Runner-up'}
-                </Box>
-              </Stack>
-              <Typography sx={{ fontFamily: sjFont.heading, fontWeight: 600, fontSize: 56, lineHeight: 1, my: 1 }}>
-                {team.score}
-              </Typography>
-              <Typography sx={{ fontSize: 13, color: sjColor.neutral600 }}>
-                {tilesTaken} tiles taken · {team.players.join(' · ') || 'No players'}
-              </Typography>
-            </BlueprintFrame>
+            <Box key={team.id}>
+              <TeamHeaderCard name={team.name} players={team.players} score={team.score} tone={tone} showSwapBadge={false} compact />
+              <Box sx={{ ...sjText.caption, color: sj.inkFaint, textAlign: 'center', mt: '8px' }}>
+                {tilesTaken} tile{tilesTaken === 1 ? '' : 's'} taken
+              </Box>
+            </Box>
           );
         })}
       </Box>
 
-      <Stack direction="row" spacing={1.5} flexWrap="wrap" sx={{ mt: 3.75 }}>
-        <SjButton sjVariant="primary" size="large" onClick={onNewGame} sx={{ px: 3.75 }}>
+      <Box sx={{ position: 'relative', display: 'flex', gap: sj.space3, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <SjButton sjVariant="outline" onClick={onNewGame}>
           New game
         </SjButton>
-        <SjButton sjVariant="secondary" size="large" onClick={onGoHome} sx={{ px: 2.75 }}>
-          Back home
+        <SjButton sjVariant="ghost" onClick={onGoHome}>
+          Home
         </SjButton>
-      </Stack>
+      </Box>
     </Box>
   );
 }

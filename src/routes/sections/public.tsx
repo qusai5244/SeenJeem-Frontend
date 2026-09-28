@@ -11,6 +11,7 @@ const HomePage = lazy(() => import('src/pages/public/home'));
 const NewGamePage = lazy(() => import('src/pages/public/new-game'));
 const GamePage = lazy(() => import('src/pages/public/game'));
 const RulesPage = lazy(() => import('src/pages/public/rules'));
+const AddQuestionPage = lazy(() => import('src/pages/public/add-question'));
 
 // ----------------------------------------------------------------------
 
@@ -26,6 +27,7 @@ export const publicRoutes: RouteObject[] = [
       { index: true, element: <HomePage /> },
       { path: 'new-game', element: <NewGamePage /> },
       { path: 'rules', element: <RulesPage /> },
+      { path: 'add-question', element: <AddQuestionPage /> },
       { path: 'game/:gameCode', element: <GamePage /> },
     ],
   },

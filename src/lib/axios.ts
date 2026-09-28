@@ -239,6 +239,7 @@ export const endpoints = {
     details: (code: string) => `/public/Game/GetGameDetails/${code}`,
     progress: (code: string) => `/public/Game/UpdateGameProgress/${code}`,
     complete: (code: string) => `/public/Game/CompleteGame/${code}`,
+    addQuestion: '/public/Question/AddQuestion',
   },
 
 };

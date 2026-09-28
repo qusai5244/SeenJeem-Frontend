@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
@@ -14,7 +12,8 @@ import { createGame, getCategories } from 'src/actions/game';
 import type { Category } from 'src/types/game';
 import { toast } from 'src/components/snackbar';
 
-import { sjColor, sjFont } from 'src/pages/public/components/sj-tokens';
+import { sj } from 'src/pages/public/components/sj-tokens';
+import { Stepper } from 'src/pages/public/components/stepper';
 
 import { TeamSetupStep } from './components/team-setup-step';
 import { CategoryBoardStep } from './components/category-board-step';
@@ -28,42 +27,6 @@ function shuffle<T>(array: T[]): T[] {
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
-}
-
-function StepBadge({ n, label, active }: { n: number; label: string; active: boolean }) {
-  return (
-    <Stack direction="row" alignItems="center" spacing={1.25}>
-      <Box
-        sx={{
-          display: 'grid',
-          placeItems: 'center',
-          width: 30,
-          height: 30,
-          fontFamily: sjFont.heading,
-          fontWeight: 600,
-          fontSize: 15,
-          bgcolor: active ? sjColor.accent : 'transparent',
-          color: active ? sjColor.bg : sjColor.accent800,
-          border: '1px solid',
-          borderColor: sjColor.accent,
-        }}
-      >
-        {n}
-      </Box>
-      <Typography
-        sx={{
-          fontFamily: sjFont.heading,
-          fontWeight: 600,
-          fontSize: 18,
-          textTransform: 'uppercase',
-          letterSpacing: '.04em',
-          color: active ? sjColor.text : sjColor.neutral600,
-        }}
-      >
-        {label}
-      </Typography>
-    </Stack>
-  );
 }
 
 export default function NewGamePage() {
@@ -143,6 +106,11 @@ export default function NewGamePage() {
     setSelectedSubCategoryIds([]);
   }, []);
 
+  const handleClearCategory = useCallback(() => {
+    setSelectedCategoryId(null);
+    setSelectedSubCategoryIds([]);
+  }, []);
+
   const handleToggleSubCategory = useCallback((subCategoryId: number) => {
     setSelectedSubCategoryIds((prev) =>
       prev.includes(subCategoryId)
@@ -198,12 +166,10 @@ export default function NewGamePage() {
         <title>New Game — SeenJeem</title>
       </Helmet>
 
-      <Box sx={{ maxWidth: 1120, mx: 'auto', width: 1, px: 3, py: 3.5, pb: 13.75 }}>
-        <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap" sx={{ mb: 3.25 }}>
-          <StepBadge n={1} label="Teams" active={step === 1} />
-          <Box sx={{ flex: 1, minWidth: 24, height: '1px', bgcolor: sjColor.divider }} />
-          <StepBadge n={2} label="Category & board" active={step === 2} />
-        </Stack>
+      <Box sx={{ maxWidth: 760, mx: 'auto', width: 1, px: 3, py: sj.space7, pb: { xs: 8, sm: 11 } }}>
+        <Box sx={{ mb: sj.space7 }}>
+          <Stepper step={step} />
+        </Box>
 
         {step === 1 && (
           <TeamSetupStep
@@ -227,6 +193,7 @@ export default function NewGamePage() {
             selectedCategoryId={selectedCategoryId}
             selectedSubCategoryIds={selectedSubCategoryIds}
             onSelectCategory={handleSelectCategory}
+            onClearCategory={handleClearCategory}
             onToggleSubCategory={handleToggleSubCategory}
             creating={creating}
             canCreate={canCreateGame}

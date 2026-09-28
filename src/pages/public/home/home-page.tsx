@@ -2,27 +2,20 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { useRouter } from 'src/routes/hooks';
 
 import { getGameDetails } from 'src/actions/game';
-import { toast } from 'src/components/snackbar';
 
+import { sj, sjText } from 'src/pages/public/components/sj-tokens';
 import { SjButton } from 'src/pages/public/components/sj-button';
-import { sjColor, sjFont } from 'src/pages/public/components/sj-tokens';
-import { BlueprintFrame } from 'src/pages/public/components/blueprint-frame';
+import { IconArrowRight, IconAlertCircle } from 'src/pages/public/components/icons';
 
 // ----------------------------------------------------------------------
-
-const STATS = [
-  { value: '16', label: 'questions per board' },
-  { value: '10–40', label: 'points per tile' },
-  { value: '1', label: 'swap per team' },
-];
+// ScreenHome — the one-decision screen: start a new game, or rejoin one.
+// See project/components/ScreenHome/README.md.
+// ----------------------------------------------------------------------
 
 export default function HomePage() {
   const router = useRouter();
@@ -36,7 +29,6 @@ export default function HomePage() {
 
     if (!code) {
       setCodeError('Enter a game code to continue.');
-      toast.error('Enter a game code to continue.');
       return;
     }
 
@@ -45,13 +37,9 @@ export default function HomePage() {
 
     try {
       const response = await getGameDetails(code);
-
-      if (response.data) {
-        router.push(paths.public.game(code));
-      }
+      if (response.data) router.push(paths.public.game(code));
     } catch {
-      setCodeError(`No game found with code ${code}.`);
-      toast.error('No game found with that code.');
+      setCodeError(`That code doesn't match a game.`);
     } finally {
       setChecking(false);
     }
@@ -63,117 +51,65 @@ export default function HomePage() {
         <title>SeenJeem — Team Trivia</title>
       </Helmet>
 
-      <Box component="main" sx={{ maxWidth: 1120, mx: 'auto', width: 1, px: 3, py: { xs: 3.5, sm: 9 }, pb: 10 }}>
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-            gap: { xs: 3.5, sm: 8 },
-            alignItems: 'start',
-          }}
-        >
-          <Box component="section">
-            <Typography
+      <Box
+        component="main"
+        sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: 3,
+          py: { xs: 5, sm: 8 },
+        }}
+      >
+        <Box sx={{ width: 1, maxWidth: 400 }}>
+          <Box
+            sx={{
+              bgcolor: sj.surface100,
+              borderRadius: sj.radiusXl,
+              boxShadow: sj.shadowSm,
+              textAlign: 'center',
+              px: { xs: 3, sm: sj.space6 },
+              pt: { xs: sj.space7, sm: sj.space9 },
+              pb: sj.space6,
+            }}
+          >
+            <Box component="h1" sx={{ ...sjText.displayXl, m: 0, mb: sj.space2 }}>
+              Seen<Box component="span" sx={{ color: sj.brand }}>Jeem</Box>
+            </Box>
+            <Box sx={{ ...sjText.bodySm, color: sj.inkMuted, m: 0, mb: sj.space7 }}>
+              Grab a team. Light up the board.
+            </Box>
+
+            <SjButton
+              sjVariant="primary"
+              sjSize="large"
+              fullWidth
+              onClick={() => router.push(paths.public.newGame)}
+            >
+              New game
+            </SjButton>
+
+            <Box
               sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: sj.space3,
+                my: sj.space6,
+                color: sj.inkFaint,
                 fontSize: 11,
-                letterSpacing: '.2em',
                 textTransform: 'uppercase',
-                color: sjColor.accent700,
-                mb: 1.75,
+                letterSpacing: '0.06em',
+                '&::before, &::after': { content: '""', flex: 1, height: '1px', bgcolor: sj.hairline },
               }}
             >
-              Team trivia · 2 teams · 16 questions
-            </Typography>
+              or continue with a code
+            </Box>
 
-            <Typography
-              component="h1"
-              sx={{
-                fontFamily: sjFont.heading,
-                fontWeight: 600,
-                fontSize: { xs: 40, sm: 72 },
-                lineHeight: 0.96,
-                m: 0,
-                mb: 2.25,
-                letterSpacing: '-.01em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Pick a board.
-              <br />
-              Split the room.
-              <br />
-              Play it out.
-            </Typography>
-
-            <Typography sx={{ m: 0, mb: 3.5, maxWidth: '46ch', fontSize: 17, color: sjColor.neutral700 }}>
-              Four categories, four values, one shared screen. Every answer is scored the second
-              it lands — no scorekeeper, no arguments.
-            </Typography>
-
-            <Stack direction="row" flexWrap="wrap" spacing={1.5}>
-              <BlueprintFrame cornerColor={sjColor.bg} sx={{ display: 'inline-flex' }}>
-                <SjButton
-                  sjVariant="primary"
-                  size="large"
-                  onClick={() => router.push(paths.public.newGame)}
-                  sx={{ fontSize: 16, px: 3.5, py: 1.75 }}
-                >
-                  New game
-                </SjButton>
-              </BlueprintFrame>
-              <SjButton
-                sjVariant="secondary"
-                size="large"
-                onClick={() => router.push(paths.public.rules)}
-                sx={{ fontSize: 15, px: 2.75 }}
-              >
-                How it works
-              </SjButton>
-            </Stack>
-
-            <Stack
-              direction="row"
-              flexWrap="wrap"
-              spacing={3.5}
-              sx={{ mt: 5.5, pt: 3, borderTop: '1px solid', borderColor: sjColor.divider }}
-            >
-              {STATS.map((stat) => (
-                <Box key={stat.label}>
-                  <Typography sx={{ fontFamily: sjFont.heading, fontWeight: 600, fontSize: 30, lineHeight: 1 }}>
-                    {stat.value}
-                  </Typography>
-                  <Typography sx={{ fontSize: 12, color: sjColor.neutral600 }}>{stat.label}</Typography>
-                </Box>
-              ))}
-            </Stack>
-          </Box>
-
-          <BlueprintFrame component="section" sx={{ p: 3.25 }}>
-            <Typography sx={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: sjColor.accent }}>
-              Already have a game
-            </Typography>
-            <Typography
-              sx={{ fontFamily: sjFont.heading, fontWeight: 600, fontSize: 26, my: 0.75 }}
-            >
-              Continue with a code
-            </Typography>
-            <Typography sx={{ m: 0, mb: 2.25, fontSize: 14, color: sjColor.neutral700 }}>
-              Anyone with the code can open the same board — a second phone, a laptop on the TV,
-              whatever is closest.
-            </Typography>
-
-            <Box sx={{ mb: 1.25 }}>
-              <Typography
-                component="label"
-                htmlFor="sj-code"
-                sx={{ display: 'block', fontSize: 12, mb: 0.625, color: 'rgba(29,31,32,0.7)' }}
-              >
-                Game code
-              </Typography>
+            <Box sx={{ display: 'flex', gap: '8px' }}>
               <Box
-                id="sj-code"
                 component="input"
-                placeholder="SJ0000"
+                placeholder="e.g. 7F3K"
                 value={gameCode}
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                   setGameCode(event.target.value.toUpperCase());
@@ -183,43 +119,74 @@ export default function HomePage() {
                   if (event.key === 'Enter') handleContinueGame();
                 }}
                 sx={{
-                  width: 1,
-                  minHeight: 52,
-                  fontFamily: sjFont.mono,
-                  letterSpacing: '.26em',
-                  fontSize: 20,
+                  flex: 1,
+                  minWidth: 0,
+                  bgcolor: sj.surface200,
+                  boxShadow: `inset 0 0 0 1.5px ${codeError ? sj.danger : sj.controlBorder}`,
+                  borderRadius: sj.radiusSm,
+                  border: 0,
+                  px: '14px',
+                  py: '12px',
+                  fontFamily: 'inherit',
+                  fontSize: 15,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  color: sjColor.text,
-                  bgcolor: sjColor.surface,
-                  border: '1px solid',
-                  borderColor: codeError ? '#c07474' : sjColor.divider,
-                  borderRadius: 0,
-                  px: 1.25,
+                  color: sj.ink,
                   outline: 'none',
-                  '&:focus-visible': { borderColor: sjColor.accent },
+                  '&::placeholder': { color: sj.inkFaint, fontWeight: 600, letterSpacing: 'normal', textTransform: 'none' },
+                  '&:focus-visible': { boxShadow: `inset 0 0 0 1.5px ${sj.focus}` },
                 }}
               />
+              <Box
+                component="button"
+                type="button"
+                aria-label="Continue with code"
+                disabled={checking}
+                onClick={handleContinueGame}
+                sx={{
+                  width: 44,
+                  height: 44,
+                  flexShrink: 0,
+                  borderRadius: sj.radiusSm,
+                  bgcolor: sj.accent,
+                  color: sj.accentInk,
+                  border: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: checking ? 'default' : 'pointer',
+                  opacity: checking ? sj.opacityDisabled : 1,
+                  '&:hover': { filter: checking ? 'none' : 'brightness(1.08)' },
+                }}
+              >
+                <IconArrowRight size={18} strokeWidth={2.5} />
+              </Box>
             </Box>
 
             {codeError && (
-              <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ fontSize: 13, color: sjColor.errorText, mb: 1.25 }}>
-                <Box component="span" sx={{ fontFamily: sjFont.heading, fontSize: 15, lineHeight: 1.2 }}>
-                  !
-                </Box>
-                <Box component="span">{codeError}</Box>
-              </Stack>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  mt: sj.space2,
+                  fontSize: 12,
+                  color: sj.danger,
+                  textAlign: 'left',
+                }}
+              >
+                <IconAlertCircle size={14} strokeWidth={2.5} style={{ flexShrink: 0 }} />
+                {codeError}
+              </Box>
             )}
+          </Box>
 
-            <SjButton
-              sjVariant="primary"
-              fullWidth
-              disabled={checking}
-              onClick={handleContinueGame}
-              sx={{ minHeight: 46, fontSize: 15 }}
-            >
-              {checking ? 'Checking…' : 'Continue game'}
+          <Box sx={{ textAlign: 'center', mt: sj.space6 }}>
+            <SjButton sjVariant="ghost" onClick={() => router.push(paths.public.rules)}>
+              How it works
             </SjButton>
-          </BlueprintFrame>
+          </Box>
         </Box>
       </Box>
     </>

@@ -104,6 +104,7 @@ export const paths = {
     root: '/',
     newGame: '/new-game',
     rules: '/rules',
+    addQuestion: '/add-question',
     game: (gameCode: string) => `/game/${gameCode}`,
   },
   // DASHBOARD

@@ -1,48 +1,42 @@
 import { Helmet } from 'react-helmet-async';
 
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
 
 import { paths } from 'src/routes/paths';
 import { RouterLink } from 'src/routes/components';
 
+import { sj, sjText } from 'src/pages/public/components/sj-tokens';
 import { SjButton } from 'src/pages/public/components/sj-button';
-import { sjColor, sjFont } from 'src/pages/public/components/sj-tokens';
 
 // ----------------------------------------------------------------------
+// ScreenRules — a static, single-column read: six numbered steps.
+// See project/components/ScreenRules/README.md.
+// ----------------------------------------------------------------------
 
-const RULES = [
+const STEPS = [
   {
-    n: '01',
-    title: 'Gather the room',
-    body: 'Type everyone in, then assign names to the two teams — or hit Shuffle & Split and let it decide.',
+    title: 'Build two teams',
+    body: 'Add every player, then split them into Team 1 and Team 2 — or let Shuffle & split do it for you.',
   },
   {
-    n: '02',
-    title: 'Pick the board',
-    body: 'One category, then exactly four subcategories. Each becomes a column worth 10, 20, 30 and 40 points.',
+    title: 'Pick your board',
+    body: 'Choose one category and exactly four of its subcategories. Together they build your 4×4 board.',
   },
   {
-    n: '03',
-    title: 'Share the code',
-    body: 'Creating a game returns a six-character code. Anyone who opens it sees the same live board.',
-  },
-  {
-    n: '04',
     title: 'Take turns',
-    body: 'The team on turn picks any open tile. Choose an answer and submit — the score updates instantly.',
+    body: 'The starting team is random. Pick any unsolved tile — 10, 20, 30 or 40 points — to open its question.',
   },
   {
-    n: '05',
-    title: 'Swap once',
-    body: 'Stuck? Each team can swap one question for another in the same tile. Once used, it’s gone for the game.',
+    title: 'Answer or swap',
+    body: 'You have two minutes. Each team gets one swap for the whole game if a question just isn’t for you.',
   },
   {
-    n: '06',
-    title: 'Finish',
-    body: 'When all sixteen tiles are taken the game closes itself and shows the final scores.',
+    title: 'Right or wrong, the turn passes',
+    body: 'Correct answers score the tile’s points. Either way, it’s the other team’s turn next.',
+  },
+  {
+    title: 'Clear the board',
+    body: 'Once all 16 tiles are answered, the higher score wins — or it’s a tie.',
   },
 ];
 
@@ -53,69 +47,37 @@ export default function RulesPage() {
         <title>How to play — SeenJeem</title>
       </Helmet>
 
-      <Container maxWidth="md" sx={{ py: { xs: 4, sm: 8 }, pb: { xs: 8, sm: 11 }, flex: 1 }}>
-        <Typography
-          sx={{
-            fontFamily: sjFont.heading,
-            fontWeight: 600,
-            fontSize: { xs: 34, sm: 56 },
-            textTransform: 'uppercase',
-            lineHeight: 1,
-            mb: 1,
-          }}
-        >
-          How to play
-        </Typography>
-        <Typography sx={{ fontSize: 17, color: sjColor.neutral700, maxWidth: '52ch', mb: 4.5 }}>
-          Six steps, about a minute of setup, then it runs itself.
-        </Typography>
+      <Box sx={{ maxWidth: 480, mx: 'auto', width: 1, px: 3, py: { xs: sj.space6, sm: sj.space7 }, pb: { xs: 8, sm: 10 } }}>
+        <Box component="h1" sx={{ ...sjText.displayLg, textAlign: 'center', m: 0, mb: sj.space6 }}>
+          How it works
+        </Box>
 
-        <Stack sx={{ gap: '2px' }}>
-          {RULES.map((rule) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: sj.space3 }}>
+          {STEPS.map((step, index) => (
             <Box
-              key={rule.n}
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: '64px 1fr',
-                gap: 2.25,
-                alignItems: 'start',
-                py: 2.5,
-                borderTop: '1px solid',
-                borderColor: sjColor.divider,
-              }}
+              key={step.title}
+              sx={{ display: 'flex', gap: sj.space4, bgcolor: sj.surface100, borderRadius: sj.radiusLg, p: sj.space5 }}
             >
-              <Typography sx={{ fontFamily: sjFont.heading, fontWeight: 600, fontSize: 34, lineHeight: 1, color: sjColor.accent }}>
-                {rule.n}
-              </Typography>
+              <Box sx={{ ...sjText.displayMd, color: sj.brand, flexShrink: 0, width: 28 }}>{index + 1}</Box>
               <Box>
-                <Typography
-                  sx={{
-                    fontFamily: sjFont.heading,
-                    fontWeight: 600,
-                    fontSize: 22,
-                    textTransform: 'uppercase',
-                    letterSpacing: '.03em',
-                  }}
-                >
-                  {rule.title}
-                </Typography>
-                <Typography sx={{ mt: 0.75, fontSize: 15, color: sjColor.neutral700, maxWidth: '56ch' }}>
-                  {rule.body}
-                </Typography>
+                <Box sx={{ ...sjText.displayMd, fontSize: 15, mb: '4px' }}>{step.title}</Box>
+                <Box sx={{ ...sjText.bodySm, color: sj.inkMuted }}>{step.body}</Box>
               </Box>
             </Box>
           ))}
-        </Stack>
+        </Box>
 
         <SjButton
           sjVariant="primary"
+          sjSize="large"
+          fullWidth
           component={RouterLink}
           href={paths.public.newGame}
-          sx={{ mt: 4.25, px: 3.75 }}
+          sx={{ mt: sj.space6 }}
         >
           Start a game
         </SjButton>
-      </Container>
+      </Box>
     </>
   );
 }

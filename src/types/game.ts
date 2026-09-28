@@ -119,3 +119,25 @@ export type CompleteGameOutput = {
   winnerTeamId: number | null;
   isTie: boolean;
 };
+
+// ----------------------------------------------------------------------
+// POST /public/Question/AddQuestion
+// ----------------------------------------------------------------------
+
+export type AddQuestionOptionInput = {
+  answer: string;
+  isCorrect: boolean;
+};
+
+export type AddQuestionInput = {
+  title: string;
+  hint?: string;
+  mark: number;
+  type: QuestionType;
+  questionSubCategoryId: number;
+  options: AddQuestionOptionInput[];
+};
+
+export type AddQuestionOutput = {
+  id: number;
+};

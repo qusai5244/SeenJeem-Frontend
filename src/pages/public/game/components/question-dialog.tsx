@@ -3,28 +3,32 @@ import type { GameTeam, GameDetails, GameQuestion } from 'src/types/game';
 import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import Dialog from '@mui/material/Dialog';
-import Typography from '@mui/material/Typography';
 
 import { GameProgressAction } from 'src/types/game';
 import { updateGameProgress } from 'src/actions/game';
 import { toast } from 'src/components/snackbar';
 
+import { sj, sjText, teamToneVars } from 'src/pages/public/components/sj-tokens';
 import { SjButton } from 'src/pages/public/components/sj-button';
-import { sjColor, sjFont } from 'src/pages/public/components/sj-tokens';
-import { BlueprintFrame } from 'src/pages/public/components/blueprint-frame';
+import { SjDialog, ConfirmDialog } from 'src/pages/public/components/sj-dialog';
+import { CountdownTimer } from 'src/pages/public/components/countdown-timer';
+import { IconCheck, IconX } from 'src/pages/public/components/icons';
+import type { TeamTone } from 'src/pages/public/components/sj-tokens';
 
+// ----------------------------------------------------------------------
+// ScreenQuestionDialog — opens over the board, never closes on scrim tap
+// while a question is live. See project/components/ScreenQuestionDialog/README.md.
 // ----------------------------------------------------------------------
 
 const QUESTION_SECONDS = 120;
-const LETTERS = ['A', 'B', 'C', 'D'];
+const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 type Props = {
   open: boolean;
   gameCode: string;
   question: GameQuestion | null;
   answeringTeam: GameTeam | null;
+  answeringTeamTone: TeamTone;
   willFinishGame: boolean;
   onClose: () => void;
   onUpdated: (details: GameDetails) => void;
@@ -35,6 +39,7 @@ export function QuestionDialog({
   gameCode,
   question,
   answeringTeam,
+  answeringTeamTone,
   willFinishGame,
   onClose,
   onUpdated,
@@ -44,11 +49,12 @@ export function QuestionDialog({
   const [swapping, setSwapping] = useState(false);
   const [answered, setAnswered] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
+  const [confirmSwapOpen, setConfirmSwapOpen] = useState(false);
 
   const questionId = question?.id;
 
-  // Reset local state whenever a new question is shown (including after a swap,
-  // which swaps in a different question id for the same cell).
+  // Reset local state whenever a new question is shown (including after a
+  // swap, which swaps in a different question id for the same cell).
   useEffect(() => {
     setSelectedOptionId(null);
     setAnswered(false);
@@ -92,6 +98,7 @@ export function QuestionDialog({
   const handleSwap = useCallback(async () => {
     if (!question || !answeringTeam) return;
 
+    setConfirmSwapOpen(false);
     setSwapping(true);
 
     try {
@@ -101,10 +108,7 @@ export function QuestionDialog({
         questionId: question.id,
       });
 
-      if (response.data) {
-        onUpdated(response.data);
-        toast.success('Question swapped — one per team');
-      }
+      if (response.data) onUpdated(response.data);
     } catch (error: any) {
       toast.error(error?.message ?? 'Failed to swap the question.');
     } finally {
@@ -112,95 +116,71 @@ export function QuestionDialog({
     }
   }, [gameCode, question, answeringTeam, onUpdated]);
 
-  // Re-derive the just-submitted answer's correctness from the latest question prop,
-  // which is refreshed by the parent from the server response after submission.
-  const submittedOption = answered
-    ? question?.answers.find((option) => option.id === question.selectedAnswerId)
-    : undefined;
+  // Re-derive the just-submitted answer's correctness from the latest question
+  // prop, refreshed by the parent from the server response after submission.
+  const submittedOption = answered ? question?.answers.find((option) => option.id === question.selectedAnswerId) : undefined;
 
   if (!question || !answeringTeam) return null;
 
   const canSwap = !answered && !answeringTeam.hasUsedSwap;
-  const mm = Math.floor(secondsLeft / 60);
-  const ss = secondsLeft % 60;
-  const timerLabel = `${mm}:${ss < 10 ? '0' : ''}${ss}`;
-  const timerColor = secondsLeft <= 15 ? sjColor.errorText : sjColor.neutral600;
+  const timedOut = !answered && secondsLeft <= 0;
   const lastCorrect = !!submittedOption?.isCorrect;
+  const { main: teamColor } = teamToneVars(answeringTeamTone);
 
   return (
-    <Dialog
-      open={open}
-      onClose={answered ? onClose : undefined}
-      maxWidth="sm"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: { borderRadius: 0, bgcolor: sjColor.bg, position: 'relative', overflow: 'visible' },
-        },
-      }}
-    >
-      <BlueprintFrame sx={{ display: 'flex', flexDirection: 'column' }}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.5}
-          flexWrap="wrap"
-          sx={{ px: 2.5, py: 2, borderBottom: '1px solid', borderColor: sjColor.divider }}
-        >
-          <Box
-            sx={{
-              fontSize: 11,
-              px: 1.25,
-              py: 0.375,
-              bgcolor: sjColor.accent,
-              color: sjColor.bg,
-            }}
-          >
-            {question.marks} points
-          </Box>
-          <Typography sx={{ fontFamily: sjFont.heading, fontWeight: 600, fontSize: 19, textTransform: 'uppercase', letterSpacing: '.05em' }}>
-            {question.subCategoryName}
-          </Typography>
-          <Box sx={{ flex: 1 }} />
-          <Typography sx={{ fontFamily: sjFont.mono, fontSize: 15, color: timerColor }}>
-            {timerLabel}
-          </Typography>
-        </Stack>
+    <>
+      <SjDialog open={open} onClose={onClose} maxWidth="sm" fullWidth preventScrimClose={!answered}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', p: sj.space6 }}>
+          {!answered && (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: sj.space4, gap: sj.space3 }}>
+                <Box sx={{ ...sjText.label, color: sj.inkFaint }}>{question.subCategoryName}</Box>
+                <Box sx={{ ...sjText.displayMd, fontSize: 15, color: sj.brand, flexShrink: 0 }}>{question.marks} pts</Box>
+              </Box>
 
-        <Box sx={{ px: 2.5, py: 2.75 }}>
-          <Typography sx={{ fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: sjColor.accent700, mb: 1.25 }}>
-            {answeringTeam.name} is answering
-          </Typography>
-          <Typography sx={{ fontSize: { xs: 22, sm: 26 }, lineHeight: 1.15, mb: 2.5 }}>
-            {question.questionText}
-          </Typography>
+              <Box sx={{ ...sjText.label, color: teamColor, mb: sj.space2 }}>{answeringTeam.name} is answering</Box>
+              <Box sx={{ ...sjText.bodyLg, mb: sj.space5 }}>{question.questionText}</Box>
+            </>
+          )}
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 1.25 }}>
+          {answered && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: sj.space3, mb: sj.space4 }}>
+              <Box
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: '999px',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: lastCorrect ? sj.success : sj.danger,
+                  color: lastCorrect ? sj.successInk : sj.dangerInk,
+                }}
+              >
+                {lastCorrect ? <IconCheck size={18} strokeWidth={3} /> : <IconX size={18} strokeWidth={3} />}
+              </Box>
+              <Box>
+                <Box sx={{ ...sjText.displayMd, fontSize: 17 }}>
+                  {timedOut ? "Time's up!" : lastCorrect ? `Correct! ${answeringTeam.name} +${question.marks}` : 'Not quite'}
+                </Box>
+                {!lastCorrect && (
+                  <Box sx={{ ...sjText.bodySm, color: sj.inkMuted, mt: '2px' }}>
+                    The answer was {question.answers.find((option) => option.isCorrect)?.answerText}.
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          )}
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {question.answers.map((option, index) => {
               const chosen = selectedOptionId === option.id;
-
-              let bg: string = 'transparent';
-              let fg: string = sjColor.text;
-              let border: string = sjColor.divider;
-              let mark = '';
-
+              let state: 'default' | 'picked' | 'correct' | 'wrong' = 'default';
               if (answered) {
-                if (option.isCorrect) {
-                  bg = sjColor.successBg;
-                  border = sjColor.successBorder;
-                  fg = sjColor.successText;
-                  mark = '✓';
-                } else if (chosen) {
-                  bg = sjColor.errorBg;
-                  border = sjColor.errorBorder;
-                  fg = sjColor.errorText;
-                  mark = '×';
-                }
-              } else if (chosen) {
-                bg = sjColor.accent100;
-                border = sjColor.accent;
-                fg = sjColor.accent900;
-              }
+                if (option.isCorrect) state = 'correct';
+                else if (chosen) state = 'wrong';
+              } else if (chosen) state = 'picked';
 
               return (
                 <Box
@@ -212,29 +192,40 @@ export function QuestionDialog({
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 1.5,
+                    gap: '10px',
                     textAlign: 'left',
-                    p: 1.75,
-                    border: '1px solid',
-                    borderColor: border,
-                    bgcolor: bg,
-                    color: fg,
+                    border: 0,
+                    borderRadius: sj.radiusMd,
+                    px: '14px',
+                    py: '12px',
+                    fontFamily: 'inherit',
+                    fontSize: 14,
+                    color: sj.ink,
                     cursor: answered ? 'default' : 'pointer',
-                    font: 'inherit',
-                    fontSize: 15,
-                    minHeight: 56,
+                    bgcolor: state === 'correct' ? sj.success : state === 'wrong' ? sj.danger : sj.surface200,
+                    ...(state === 'correct' && { color: sj.successInk }),
+                    ...(state === 'wrong' && { color: sj.dangerInk }),
+                    boxShadow:
+                      state === 'default'
+                        ? `inset 0 0 0 1.5px ${sj.controlBorder}`
+                        : state === 'picked'
+                          ? `inset 0 0 0 2px ${sj.accent}`
+                          : 'none',
                   }}
                 >
                   <Box
                     sx={{
-                      display: 'grid',
-                      placeItems: 'center',
-                      width: 26,
-                      height: 26,
-                      flex: 'none',
-                      border: '1px solid currentColor',
-                      fontFamily: sjFont.heading,
-                      fontSize: 14,
+                      width: 20,
+                      height: 20,
+                      borderRadius: '999px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      flexShrink: 0,
+                      bgcolor: state === 'correct' ? sj.successInk : state === 'wrong' ? sj.dangerInk : sj.surface300,
+                      color: state === 'correct' ? sj.success : state === 'wrong' ? sj.danger : sj.inkMuted,
                     }}
                   >
                     {LETTERS[index]}
@@ -242,67 +233,48 @@ export function QuestionDialog({
                   <Box component="span" sx={{ flex: 1 }}>
                     {option.answerText}
                   </Box>
-                  <Box component="span" sx={{ fontFamily: sjFont.heading, fontSize: 16 }}>
-                    {mark}
-                  </Box>
+                  {state === 'correct' && <IconCheck size={16} strokeWidth={3} />}
+                  {state === 'wrong' && <IconX size={16} strokeWidth={3} />}
                 </Box>
               );
             })}
           </Box>
 
           {answered && (
-            <Box
-              sx={{
-                mt: 2.25,
-                px: 2,
-                py: 1.75,
-                border: '1px solid',
-                borderColor: lastCorrect ? sjColor.successBorder : sjColor.errorBorder,
-                bgcolor: lastCorrect ? sjColor.successBg : sjColor.errorBg,
-                color: lastCorrect ? sjColor.successText : sjColor.errorText,
-                fontFamily: sjFont.heading,
-                fontWeight: 600,
-                fontSize: 21,
-                textTransform: 'uppercase',
-                letterSpacing: '.04em',
-              }}
-            >
-              {lastCorrect ? `Correct — +${question.marks} points` : 'Incorrect — no points awarded'}
+            <Box sx={{ ...sjText.bodySm, color: sj.inkMuted, textAlign: 'center', mt: sj.space4 }}>
+              Next up: <Box component="span" sx={{ color: sj.ink, fontWeight: 700 }}>{willFinishGame ? 'the final results' : "the other team's turn"}</Box>
             </Box>
           )}
+
+          {!answered ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: sj.space4, mt: sj.space5 }}>
+              <CountdownTimer secondsLeft={secondsLeft} totalSeconds={QUESTION_SECONDS} />
+              <Box sx={{ display: 'flex', gap: '8px' }}>
+                <SjButton sjVariant="outline" disabled={!canSwap || submitting || swapping} onClick={() => setConfirmSwapOpen(true)}>
+                  {answeringTeam.hasUsedSwap ? 'Swap used' : swapping ? 'Swapping…' : 'Swap'}
+                </SjButton>
+                <SjButton sjVariant="primary" disabled={selectedOptionId == null || submitting} onClick={handleSubmit}>
+                  {submitting ? 'Submitting…' : 'Submit'}
+                </SjButton>
+              </Box>
+            </Box>
+          ) : (
+            <SjButton sjVariant="primary" fullWidth onClick={onClose} sx={{ mt: sj.space5 }}>
+              Continue
+            </SjButton>
+          )}
         </Box>
+      </SjDialog>
 
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.5}
-          flexWrap="wrap"
-          sx={{ px: 2.5, py: 1.75, borderTop: '1px solid', borderColor: sjColor.divider }}
-        >
-          {!answered && (
-            <SjButton sjVariant="secondary" disabled={!canSwap || submitting} onClick={handleSwap}>
-              {answeringTeam.hasUsedSwap ? 'Swap used' : swapping ? 'Swapping…' : 'Swap question'}
-            </SjButton>
-          )}
-
-          <Typography sx={{ fontSize: 12, color: sjColor.neutral600 }}>
-            {answered ? 'Scores are already saved.' : 'One swap per team, for the whole game.'}
-          </Typography>
-
-          <Box sx={{ flex: 1 }} />
-
-          {!answered && (
-            <SjButton sjVariant="primary" disabled={selectedOptionId == null || submitting} onClick={handleSubmit} sx={{ px: 3 }}>
-              {submitting ? 'Submitting…' : 'Submit answer'}
-            </SjButton>
-          )}
-          {answered && (
-            <SjButton sjVariant="primary" onClick={onClose} sx={{ px: 3 }}>
-              {willFinishGame ? 'See results' : 'Next turn'}
-            </SjButton>
-          )}
-        </Stack>
-      </BlueprintFrame>
-    </Dialog>
+      <ConfirmDialog
+        open={confirmSwapOpen}
+        tone="warning"
+        title={`Use ${answeringTeam.name}'s swap?`}
+        description="Each team gets one swap for the whole game. This trades the question, not the turn."
+        confirmLabel="Use swap"
+        onCancel={() => setConfirmSwapOpen(false)}
+        onConfirm={handleSwap}
+      />
+    </>
   );
 }

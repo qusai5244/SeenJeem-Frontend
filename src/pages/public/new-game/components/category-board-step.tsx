@@ -1,13 +1,17 @@
 import type { Category } from 'src/types/game';
 
 import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 
+import { sj, sjText } from 'src/pages/public/components/sj-tokens';
 import { SjButton } from 'src/pages/public/components/sj-button';
-import { sjColor, sjFont } from 'src/pages/public/components/sj-tokens';
-import { BlueprintFrame } from 'src/pages/public/components/blueprint-frame';
+import { AvailabilityBadge } from 'src/pages/public/components/badge';
+import { SelectableCard } from 'src/pages/public/components/sj-card';
+import { FullScreenLoading } from 'src/pages/public/components/feedback-states';
+import { IconLock } from 'src/pages/public/components/icons';
 
+// ----------------------------------------------------------------------
+// ScreenNewGameCategoryBoard — step 2 of the wizard.
+// See project/components/ScreenNewGameCategoryBoard/README.md.
 // ----------------------------------------------------------------------
 
 type Props = {
@@ -16,6 +20,7 @@ type Props = {
   selectedCategoryId: number | null;
   selectedSubCategoryIds: number[];
   onSelectCategory: (categoryId: number) => void;
+  onClearCategory: () => void;
   onToggleSubCategory: (subCategoryId: number) => void;
   creating: boolean;
   canCreate: boolean;
@@ -29,6 +34,7 @@ export function CategoryBoardStep({
   selectedCategoryId,
   selectedSubCategoryIds,
   onSelectCategory,
+  onClearCategory,
   onToggleSubCategory,
   creating,
   canCreate,
@@ -37,163 +43,119 @@ export function CategoryBoardStep({
 }: Props) {
   const selectedCategory = categories.find((category) => category.id === selectedCategoryId);
 
-  const step2Hint =
-    selectedCategoryId == null
-      ? 'Pick a category first.'
-      : selectedSubCategoryIds.length === 4
-        ? 'Board ready — 16 questions.'
-        : 'Choose exactly 4 subcategories.';
-
-  if (loading) {
-    return (
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ py: 7.5, color: sjColor.neutral600, fontSize: 14 }}>
-        <Box
-          sx={{
-            width: 18,
-            height: 18,
-            border: '2px solid',
-            borderColor: sjColor.accent300,
-            borderTopColor: sjColor.accent,
-            borderRadius: '50%',
-            animation: 'sj-spin .8s linear infinite',
-          }}
-        />
-        Loading categories…
-      </Stack>
-    );
-  }
+  if (loading) return <FullScreenLoading />;
 
   return (
     <Box component="section">
-      <Typography sx={{ fontSize: 22, textTransform: 'uppercase', letterSpacing: '.06em', m: 0, mb: 0.5 }}>
-        Choose a category
-      </Typography>
-      <Typography sx={{ m: 0, mb: 2, fontSize: 14, color: sjColor.neutral600 }}>
-        Greyed categories don&apos;t have enough available questions right now.
-      </Typography>
-
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 1.75, mb: 4.5 }}>
-        {categories.map((category) => {
-          const availableCount = category.subCategories.filter((sub) => sub.isAvailable).length;
-          const disabled = availableCount < 4;
-          const selected = category.id === selectedCategoryId;
-
-          return (
-            <BlueprintFrame
-              key={category.id}
-              component="button"
-              onClick={() => !disabled && onSelectCategory(category.id)}
-              cornerColor={selected ? sjColor.bg : undefined}
-              sx={{
-                textAlign: 'left',
-                p: 2,
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                opacity: disabled ? 0.45 : 1,
-                bgcolor: selected ? sjColor.accent : 'transparent',
-                color: selected ? sjColor.bg : sjColor.text,
-                borderColor: selected ? sjColor.accent : sjColor.divider,
-                fontFamily: sjFont.body,
-              }}
-              disabled={disabled}
-            >
-              <Typography sx={{ fontFamily: sjFont.heading, fontWeight: 600, fontSize: 21, textTransform: 'uppercase', lineHeight: 1.1 }}>
-                {category.name}
-              </Typography>
-              <Typography sx={{ fontSize: 12, mt: 0.75, opacity: 0.75 }}>
-                {disabled ? 'Not enough subcategories yet' : `${availableCount} subcategories available`}
-              </Typography>
-            </BlueprintFrame>
-          );
-        })}
+      <Box component="h1" sx={{ ...sjText.displayLg, m: 0, mb: sj.space2 }}>
+        Pick your board
+      </Box>
+      <Box sx={{ ...sjText.bodySm, color: sj.inkMuted, mb: sj.space6 }}>
+        Choose a category, then exactly four subcategories to build the 4×4 board.
       </Box>
 
+      {!selectedCategory && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: sj.space4 }}>
+          {categories.map((category) => {
+            const availableCount = category.subCategories.filter((sub) => sub.isAvailable).length;
+            const ready = availableCount >= 4;
+
+            return (
+              <SelectableCard
+                key={category.id}
+                title={category.name}
+                icon={<IconLock size={20} />}
+                disabled={!ready}
+                onClick={() => onSelectCategory(category.id)}
+                badge={<AvailabilityBadge ready={ready} label={`${availableCount} of 4 ready`} />}
+              />
+            );
+          })}
+        </Box>
+      )}
+
       {selectedCategory && (
-        <Box sx={{ mb: 3.75 }}>
-          <Stack direction="row" alignItems="baseline" spacing={1.5} flexWrap="wrap" sx={{ mb: 0.5 }}>
-            <Typography sx={{ fontSize: 22, textTransform: 'uppercase', letterSpacing: '.06em', m: 0 }}>
-              Pick 4 subcategories
-            </Typography>
+        <>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              bgcolor: sj.surface100,
+              borderRadius: sj.radiusLg,
+              px: sj.space5,
+              py: sj.space4,
+              mb: sj.space6,
+            }}
+          >
             <Box
               sx={{
-                fontSize: 11,
-                px: 1.25,
-                py: 0.375,
-                bgcolor: selectedSubCategoryIds.length === 4 ? sjColor.successBg : sjColor.surface,
-                color: selectedSubCategoryIds.length === 4 ? sjColor.successText : sjColor.text,
+                width: 34,
+                height: 34,
+                borderRadius: sj.radiusSm,
+                bgcolor: sj.surface300,
+                color: sj.brand,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
-              {selectedSubCategoryIds.length} of 4 chosen
+              <IconLock size={17} />
             </Box>
-          </Stack>
-          <Typography sx={{ m: 0, mb: 2, fontSize: 14, color: sjColor.neutral600 }}>
-            Each one becomes a column on the board: 10, 20, 30 and 40 points.
-          </Typography>
+            <Box sx={{ minWidth: 0 }}>
+              <Box sx={{ ...sjText.displayMd, fontSize: 15 }}>{selectedCategory.name}</Box>
+              <Box sx={{ fontSize: 12, color: sj.inkMuted }}>
+                {selectedCategory.subCategories.filter((sub) => sub.isAvailable).length} subcategories ready
+              </Box>
+            </Box>
+            <Box sx={{ flex: 1 }} />
+            <SjButton sjVariant="ghost" onClick={onClearCategory}>
+              Change
+            </SjButton>
+          </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 1.75 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: sj.space4, mb: sj.space6 }}>
             {selectedCategory.subCategories.map((sub) => {
               const checked = selectedSubCategoryIds.includes(sub.id);
               const full = selectedSubCategoryIds.length >= 4 && !checked;
               const disabled = !sub.isAvailable || full;
 
               return (
-                <BlueprintFrame
+                <SelectableCard
                   key={sub.id}
-                  component="button"
-                  onClick={() => !disabled && onToggleSubCategory(sub.id)}
-                  cornerColor={checked ? sjColor.accent900 : undefined}
-                  sx={{
-                    textAlign: 'left',
-                    p: 1.75,
-                    cursor: disabled ? 'not-allowed' : 'pointer',
-                    opacity: !sub.isAvailable ? 0.4 : full ? 0.55 : 1,
-                    bgcolor: checked ? sjColor.accent100 : 'transparent',
-                    color: checked ? sjColor.accent900 : sjColor.text,
-                    borderColor: checked ? sjColor.accent : sjColor.divider,
-                    fontFamily: sjFont.body,
-                  }}
+                  size="small"
+                  title={sub.name}
+                  selected={checked}
                   disabled={disabled}
-                >
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Box
-                      sx={{
-                        display: 'grid',
-                        placeItems: 'center',
-                        width: 20,
-                        height: 20,
-                        fontSize: 12,
-                        border: '1px solid currentColor',
-                        opacity: checked ? 1 : 0.25,
-                      }}
-                    >
-                      ✓
+                  onClick={() => onToggleSubCategory(sub.id)}
+                  badge={
+                    <Box sx={{ fontSize: 11, color: sj.inkMuted }}>
+                      {!sub.isAvailable ? 'Unavailable' : checked ? `Column ${selectedSubCategoryIds.indexOf(sub.id) + 1}` : 'Ready'}
                     </Box>
-                    <Typography sx={{ fontFamily: sjFont.heading, fontWeight: 600, fontSize: 18, textTransform: 'uppercase' }}>
-                      {sub.name}
-                    </Typography>
-                  </Stack>
-                  <Typography sx={{ fontSize: 12, mt: 0.75, opacity: 0.7 }}>
-                    {sub.isAvailable
-                      ? checked
-                        ? `Column ${selectedSubCategoryIds.indexOf(sub.id) + 1}`
-                        : 'Questions ready'
-                      : 'Unavailable'}
-                  </Typography>
-                </BlueprintFrame>
+                  }
+                />
               );
             })}
           </Box>
-        </Box>
+        </>
       )}
 
-      <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
-        <SjButton sjVariant="secondary" onClick={onBack} sx={{ px: 2.75 }}>
-          Back
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: sj.space4, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: sj.space4 }}>
+          <SjButton sjVariant="outline" onClick={onBack}>
+            Back
+          </SjButton>
+          {selectedCategory && (
+            <Box sx={{ fontSize: 13, fontWeight: 700, color: selectedSubCategoryIds.length === 4 ? sj.success : sj.inkMuted }}>
+              {selectedSubCategoryIds.length} of 4 selected
+            </Box>
+          )}
+        </Box>
+        <SjButton sjVariant="primary" sjSize="large" disabled={!canCreate || creating} onClick={onCreate}>
+          {creating ? 'Building your board…' : 'Create game'}
         </SjButton>
-        <SjButton sjVariant="primary" disabled={!canCreate || creating} onClick={onCreate} sx={{ px: 4 }}>
-          {creating ? 'Creating…' : 'Create game'}
-        </SjButton>
-        <Typography sx={{ fontSize: 13, color: sjColor.neutral600 }}>{step2Hint}</Typography>
-      </Stack>
+      </Box>
     </Box>
   );
 }
