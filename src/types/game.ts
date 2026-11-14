@@ -14,12 +14,23 @@ export enum QuestionType {
   MultipleChoice = 1,
   TrueFalse = 2,
   Text = 3,
+  // Option answer is an absolute http(s) image URL.
+  ImageChoice = 4,
+  // Option answer is a #RRGGBB hex colour.
+  ColorChoice = 5,
 }
+
+export const isVisualQuestionType = (type: QuestionType) =>
+  type === QuestionType.ImageChoice || type === QuestionType.ColorChoice;
 
 export enum GameProgressAction {
   AnswerQuestion = 1,
   SwapQuestion = 2,
+  RemoveTwoOptions = 3,
 }
+
+// Mirrors backend Constants.MinOptionsForRemoveTwo.
+export const MIN_OPTIONS_FOR_REMOVE_TWO = 4;
 
 // ----------------------------------------------------------------------
 // GET /public/Category/GetCategories
@@ -79,6 +90,8 @@ export type GameQuestion = {
   answers: GameAnswerOption[];
   solvedByTeamId: number | null;
   selectedAnswerId: number | null;
+  // Wrong options hidden by this cell's "remove two"; empty if not used.
+  removedAnswerIds: number[];
 };
 
 export type GameTeam = {
@@ -87,6 +100,7 @@ export type GameTeam = {
   players: string[];
   score: number;
   hasUsedSwap: boolean;
+  hasUsedRemoveTwo: boolean;
 };
 
 export type GameDetails = {

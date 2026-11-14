@@ -38,6 +38,26 @@ export function SwapBadge({ used }: { used: boolean }) {
   );
 }
 
+// Compact once-per-game helper status (Swap, Remove 2) for tight spots like the team card.
+export function LifelineBadge({ label, used }: { label: string; used: boolean }) {
+  return (
+    <Box
+      component="span"
+      title={used ? `${label} used` : `${label} available`}
+      sx={{
+        ...badgeBaseSx,
+        padding: '4px 8px',
+        fontSize: 10,
+        ...(used
+          ? { backgroundColor: sj.warning, color: sj.warningInk, textDecoration: 'line-through' }
+          : { backgroundColor: 'transparent', boxShadow: `inset 0 0 0 1.5px ${sj.accent}`, color: sj.link }),
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
+
 export function TurnPill({ teamName, tone }: { teamName: string; tone: 'a' | 'b' }) {
   const main = tone === 'a' ? sj.teamA : sj.teamB;
   return (

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 
-import { GameProgressAction } from 'src/types/game';
+import { QuestionType, GameProgressAction, isVisualQuestionType, MIN_OPTIONS_FOR_REMOVE_TWO } from 'src/types/game';
 import { updateGameProgress } from 'src/actions/game';
 import { toast } from 'src/components/snackbar';
 
@@ -22,6 +22,111 @@ import type { TeamTone } from 'src/pages/public/components/sj-tokens';
 
 const QUESTION_SECONDS = 120;
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+type OptionState = 'default' | 'picked' | 'correct' | 'wrong';
+
+// A square tile for image / colour questions. The letter badge doubles as the
+// option's accessible name, since the content itself carries no text.
+function VisualOption({
+  kind,
+  value,
+  letter,
+  state,
+  removed,
+  disabled,
+  onSelect,
+}: {
+  kind: 'image' | 'color';
+  value: string;
+  letter: string;
+  state: OptionState;
+  removed: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => setImageFailed(false), [value]);
+
+  const ring =
+    state === 'correct'
+      ? `0 0 0 3px ${sj.success}`
+      : state === 'wrong'
+        ? `0 0 0 3px ${sj.danger}`
+        : state === 'picked'
+          ? `0 0 0 3px ${sj.accent}`
+          : `inset 0 0 0 1.5px ${sj.controlBorder}`;
+
+  const badgeBg = state === 'correct' ? sj.success : state === 'wrong' ? sj.danger : state === 'picked' ? sj.accent : sj.surface100;
+  const badgeInk =
+    state === 'correct' ? sj.successInk : state === 'wrong' ? sj.dangerInk : state === 'picked' ? sj.accentInk : sj.ink;
+
+  return (
+    <Box
+      component="button"
+      type="button"
+      aria-label={removed ? `Option ${letter} removed` : `Option ${letter}`}
+      aria-pressed={state === 'picked'}
+      disabled={disabled}
+      onClick={onSelect}
+      sx={{
+        ...(removed && { opacity: 0.25, filter: 'grayscale(1)' }),
+        position: 'relative',
+        aspectRatio: '4 / 3',
+        p: 0,
+        border: 0,
+        borderRadius: sj.radiusMd,
+        overflow: 'hidden',
+        cursor: disabled ? 'default' : 'pointer',
+        bgcolor: kind === 'color' ? value : sj.surface200,
+        boxShadow: ring,
+        transition: 'box-shadow 120ms ease, transform 120ms ease',
+        '&:not(:disabled):hover': { transform: 'translateY(-1px)' },
+        '&:focus-visible': { outline: `2px solid ${sj.focus}`, outlineOffset: '3px' },
+      }}
+    >
+      {kind === 'image' &&
+        (imageFailed ? (
+          <Box sx={{ ...sjText.bodySm, color: sj.inkFaint, px: 1 }}>Image unavailable</Box>
+        ) : (
+          <Box
+            component="img"
+            src={value}
+            alt=""
+            loading="eager"
+            draggable={false}
+            onError={() => setImageFailed(true)}
+            sx={{ display: 'block', width: 1, height: 1, objectFit: 'cover' }}
+          />
+        ))}
+
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          minWidth: 24,
+          height: 24,
+          px: '6px',
+          borderRadius: '999px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '3px',
+          fontSize: 11,
+          fontWeight: 800,
+          bgcolor: badgeBg,
+          color: badgeInk,
+          boxShadow: sj.shadowSm,
+        }}
+      >
+        {letter}
+        {state === 'correct' && <IconCheck size={12} strokeWidth={3} />}
+        {state === 'wrong' && <IconX size={12} strokeWidth={3} />}
+      </Box>
+    </Box>
+  );
+}
 
 type Props = {
   open: boolean;
@@ -50,8 +155,11 @@ export function QuestionDialog({
   const [answered, setAnswered] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(QUESTION_SECONDS);
   const [confirmSwapOpen, setConfirmSwapOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
 
   const questionId = question?.id;
+  const removedAnswerIds = question?.removedAnswerIds;
 
   // Reset local state whenever a new question is shown (including after a
   // swap, which swaps in a different question id for the same cell).
@@ -60,6 +168,13 @@ export function QuestionDialog({
     setAnswered(false);
     setSecondsLeft(QUESTION_SECONDS);
   }, [questionId]);
+
+  // Drop a pick that was just removed, so Submit can't send a hidden option.
+  useEffect(() => {
+    if (removedAnswerIds?.length) {
+      setSelectedOptionId((prev) => (prev != null && removedAnswerIds.includes(prev) ? null : prev));
+    }
+  }, [removedAnswerIds]);
 
   useEffect(() => {
     if (!open || answered) return undefined;
@@ -116,13 +231,39 @@ export function QuestionDialog({
     }
   }, [gameCode, question, answeringTeam, onUpdated]);
 
+  const handleRemoveTwo = useCallback(async () => {
+    if (!question || !answeringTeam) return;
+
+    setConfirmRemoveOpen(false);
+    setRemoving(true);
+
+    try {
+      const response = await updateGameProgress(gameCode, {
+        action: GameProgressAction.RemoveTwoOptions,
+        teamId: answeringTeam.id,
+        questionId: question.id,
+      });
+
+      if (response.data) onUpdated(response.data);
+    } catch (error: any) {
+      toast.error(error?.message ?? 'Failed to remove two answers.');
+    } finally {
+      setRemoving(false);
+    }
+  }, [gameCode, question, answeringTeam, onUpdated]);
+
   // Re-derive the just-submitted answer's correctness from the latest question
   // prop, refreshed by the parent from the server response after submission.
   const submittedOption = answered ? question?.answers.find((option) => option.id === question.selectedAnswerId) : undefined;
 
   if (!question || !answeringTeam) return null;
 
+  const visual = isVisualQuestionType(question.questionType);
   const canSwap = !answered && !answeringTeam.hasUsedSwap;
+  const removedIds = new Set(question.removedAnswerIds ?? []);
+  const removeTwoApplies = question.answers.length >= MIN_OPTIONS_FOR_REMOVE_TWO;
+  const canRemoveTwo = !answered && removeTwoApplies && !answeringTeam.hasUsedRemoveTwo && removedIds.size === 0;
+  const busy = submitting || swapping || removing;
   const timedOut = !answered && secondsLeft <= 0;
   const lastCorrect = !!submittedOption?.isCorrect;
   const { main: teamColor } = teamToneVars(answeringTeamTone);
@@ -166,30 +307,56 @@ export function QuestionDialog({
                 </Box>
                 {!lastCorrect && (
                   <Box sx={{ ...sjText.bodySm, color: sj.inkMuted, mt: '2px' }}>
-                    The answer was {question.answers.find((option) => option.isCorrect)?.answerText}.
+                    {visual
+                      ? `The answer was ${LETTERS[question.answers.findIndex((option) => option.isCorrect)] ?? '—'}.`
+                      : `The answer was ${question.answers.find((option) => option.isCorrect)?.answerText}.`}
                   </Box>
                 )}
               </Box>
             </Box>
           )}
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <Box
+            sx={
+              visual
+                ? { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px' }
+                : { display: 'flex', flexDirection: 'column', gap: '8px' }
+            }
+          >
             {question.answers.map((option, index) => {
               const chosen = selectedOptionId === option.id;
-              let state: 'default' | 'picked' | 'correct' | 'wrong' = 'default';
+              const removed = removedIds.has(option.id);
+              let state: OptionState = 'default';
               if (answered) {
                 if (option.isCorrect) state = 'correct';
                 else if (chosen) state = 'wrong';
               } else if (chosen) state = 'picked';
+
+              if (visual) {
+                return (
+                  <VisualOption
+                    key={option.id}
+                    kind={question.questionType === QuestionType.ColorChoice ? 'color' : 'image'}
+                    value={option.answerText}
+                    letter={LETTERS[index]}
+                    state={state}
+                    removed={removed}
+                    disabled={answered || busy || removed}
+                    onSelect={() => setSelectedOptionId(option.id)}
+                  />
+                );
+              }
 
               return (
                 <Box
                   key={option.id}
                   component="button"
                   type="button"
-                  disabled={answered || submitting}
+                  disabled={answered || busy || removed}
+                  aria-label={removed ? `Option ${LETTERS[index]} removed` : undefined}
                   onClick={() => setSelectedOptionId(option.id)}
                   sx={{
+                    ...(removed && { opacity: 0.35, textDecoration: 'line-through' }),
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
@@ -201,7 +368,7 @@ export function QuestionDialog({
                     fontFamily: 'inherit',
                     fontSize: 14,
                     color: sj.ink,
-                    cursor: answered ? 'default' : 'pointer',
+                    cursor: answered || removed ? 'default' : 'pointer',
                     bgcolor: state === 'correct' ? sj.success : state === 'wrong' ? sj.danger : sj.surface200,
                     ...(state === 'correct' && { color: sj.successInk }),
                     ...(state === 'wrong' && { color: sj.dangerInk }),
@@ -247,13 +414,24 @@ export function QuestionDialog({
           )}
 
           {!answered ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: sj.space4, mt: sj.space5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: sj.space4, mt: sj.space5 }}>
               <CountdownTimer secondsLeft={secondsLeft} totalSeconds={QUESTION_SECONDS} />
-              <Box sx={{ display: 'flex', gap: '8px' }}>
-                <SjButton sjVariant="outline" disabled={!canSwap || submitting || swapping} onClick={() => setConfirmSwapOpen(true)}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '8px' }}>
+                {removeTwoApplies && (
+                  <SjButton sjVariant="outline" disabled={!canRemoveTwo || busy} onClick={() => setConfirmRemoveOpen(true)}>
+                    {removedIds.size > 0
+                      ? '2 removed'
+                      : answeringTeam.hasUsedRemoveTwo
+                        ? 'Remove 2 used'
+                        : removing
+                          ? 'Removing…'
+                          : 'Remove 2'}
+                  </SjButton>
+                )}
+                <SjButton sjVariant="outline" disabled={!canSwap || busy} onClick={() => setConfirmSwapOpen(true)}>
                   {answeringTeam.hasUsedSwap ? 'Swap used' : swapping ? 'Swapping…' : 'Swap'}
                 </SjButton>
-                <SjButton sjVariant="primary" disabled={selectedOptionId == null || submitting} onClick={handleSubmit}>
+                <SjButton sjVariant="primary" disabled={selectedOptionId == null || busy} onClick={handleSubmit}>
                   {submitting ? 'Submitting…' : 'Submit'}
                 </SjButton>
               </Box>
@@ -274,6 +452,16 @@ export function QuestionDialog({
         confirmLabel="Use swap"
         onCancel={() => setConfirmSwapOpen(false)}
         onConfirm={handleSwap}
+      />
+
+      <ConfirmDialog
+        open={confirmRemoveOpen}
+        tone="warning"
+        title={`Use ${answeringTeam.name}'s remove-two?`}
+        description={`Each team can remove two wrong answers once per game. If you swap this question afterwards, the removal is lost.`}
+        confirmLabel="Remove 2"
+        onCancel={() => setConfirmRemoveOpen(false)}
+        onConfirm={handleRemoveTwo}
       />
     </>
   );

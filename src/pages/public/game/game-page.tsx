@@ -167,6 +167,7 @@ export default function GamePage() {
                   tone={index === 0 ? 'a' : 'b'}
                   isCurrentTurn={team.id === gameDetails.currentTurnTeamId}
                   swapUsed={team.hasUsedSwap}
+                  removeTwoUsed={team.hasUsedRemoveTwo}
                 />
               ))}
             </Box>

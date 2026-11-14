@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 
 import { sj, sjFont, sjText, teamToneVars } from './sj-tokens';
-import { SwapBadge } from './badge';
+import { LifelineBadge } from './badge';
 import type { TeamTone } from './sj-tokens';
 
 // ----------------------------------------------------------------------
@@ -17,6 +17,7 @@ type Props = {
   tone: TeamTone;
   isCurrentTurn?: boolean;
   swapUsed?: boolean;
+  removeTwoUsed?: boolean;
   showSwapBadge?: boolean;
   compact?: boolean;
 };
@@ -28,6 +29,7 @@ export function TeamHeaderCard({
   tone,
   isCurrentTurn = false,
   swapUsed = false,
+  removeTwoUsed = false,
   showSwapBadge = true,
   compact = false,
 }: Props) {
@@ -81,8 +83,9 @@ export function TeamHeaderCard({
         </Box>
       </Stack>
       {showSwapBadge && (
-        <Box sx={{ position: 'absolute', top: sj.space3, right: sj.space3 }}>
-          <SwapBadge used={swapUsed} />
+        <Box sx={{ position: 'absolute', top: sj.space3, right: sj.space3, display: 'flex', gap: '4px' }}>
+          <LifelineBadge label="Remove 2" used={removeTwoUsed} />
+          <LifelineBadge label="Swap" used={swapUsed} />
         </Box>
       )}
     </Box>
